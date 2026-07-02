@@ -75,9 +75,9 @@ pub async fn init(
         .api_key(api_key.to_string())
         .host(normalize_host(endpoint))
         .error_tracking(error_tracking)
-        // Observe terminal SDK delivery failures as metrics. Registering a hook
-        // also silences the SDK's default per-reject WARN, so this metric now
-        // owns that signal. Observability-only: must not re-enter the SDK.
+        // Observe terminal SDK delivery failures. Registering a hook silences the
+        // SDK's default per-drop WARN, so the hook re-emits it alongside a metric.
+        // Observability-only: must not re-enter the SDK.
         .on_error(move |err| report_sdk_error(service, err))
         .build()
         .expect("all client options have defaults");
@@ -140,9 +140,16 @@ pub fn capture_exception<E>(
     }
 }
 
-/// Emit the delivery-failure metric for one terminal SDK failure. Wired as the
-/// client's `on_error` hook in [`init`]; runs on whichever SDK thread hit the
-/// failure, stays allocation-light, and never calls back into the SDK.
+/// Emit the delivery-failure metric and a log breadcrumb for one terminal SDK
+/// failure. Wired as the client's `on_error` hook in [`init`]; runs on whichever
+/// SDK thread hit the failure, stays allocation-light, and never calls back into
+/// the SDK.
+///
+/// The `warn!` restores the signal the SDK emitted before a hook took over:
+/// registering `on_error` suppresses the SDK's own default per-drop `warn!`, so
+/// without this we would go dark on logs. `warn`, not `error`, matches that
+/// default and the severity of dropped telemetry (degraded, not fatal); it fires
+/// only on terminal failure (post-retry), so it stays bounded.
 fn report_sdk_error(service: &'static str, err: &PostHogError<'_>) {
     let (surface, reason) = classify_sdk_error(err);
     metrics::counter!(
@@ -152,6 +159,12 @@ fn report_sdk_error(service: &'static str, err: &PostHogError<'_>) {
         "reason" => reason,
     )
     .increment(1);
+    tracing::warn!(
+        service,
+        surface,
+        reason,
+        "posthog-rs dropped telemetry after terminal delivery failure"
+    );
 }
 
 /// Map a `PostHogError` to bounded `(surface, reason)` metric labels. `surface`
