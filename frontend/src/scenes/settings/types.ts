@@ -118,6 +118,7 @@ export type SettingId =
     | 'csp-reporting'
     | 'customer-analytics-accounts'
     | 'customer-analytics-dashboard-events'
+    | 'customer-analytics-event-stream'
     | 'customer-analytics-usage-metrics'
     | 'customization-irl'
     | 'data-theme'
