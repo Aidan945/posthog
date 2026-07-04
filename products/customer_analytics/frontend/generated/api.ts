@@ -29,6 +29,7 @@ import type {
     CustomerProfileConfigsListParams,
     EventStreamApi,
     EventStreamMemberWriteApi,
+    EventStreamTestMessageApi,
     EventStreamsListParams,
     GroupUsageMetricApi,
     GroupsTypesMetricsListParams,
@@ -1053,6 +1054,26 @@ export const eventStreamsRemoveAccountCreate = async (
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...options?.headers },
         body: JSON.stringify(eventStreamMemberWriteApi),
+    })
+}
+
+export const getEventStreamsSendTestMessageCreateUrl = (projectId: string, id: string) => {
+    return `/api/projects/${projectId}/event_streams/${id}/send_test_message/`
+}
+
+/**
+ * The team's event stream: a live feed of selected accounts' events posted to a Slack
+ * channel. Delivery runs through a managed CDP destination that is re-provisioned inside
+ * the same transaction as every write, so config and delivery can't drift apart.
+ */
+export const eventStreamsSendTestMessageCreate = async (
+    projectId: string,
+    id: string,
+    options?: RequestInit
+): Promise<EventStreamTestMessageApi> => {
+    return apiMutator<EventStreamTestMessageApi>(getEventStreamsSendTestMessageCreateUrl(projectId, id), {
+        ...options,
+        method: 'POST',
     })
 }
 
