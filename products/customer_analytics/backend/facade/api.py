@@ -1929,4 +1929,3 @@ def set_event_stream_member(
     else:
         EventStreamMember.objects.for_team(team_id).filter(stream=stream, account=account).delete()
     return _to_event_stream_view(stream)
-
