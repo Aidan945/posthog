@@ -23,6 +23,7 @@ import {
     MetricsViewMode,
     RECOMMENDED_AGGREGATION_BY_TYPE,
 } from './metricsViewerLogic'
+import { SavedViewsButton } from './MetricsViews/SavedViewsButton'
 
 const VIEW_MODE_OPTIONS: { value: MetricsViewMode; label: string }[] = [
     { value: 'chart', label: 'Chart' },
@@ -255,6 +256,7 @@ export const MetricsViewer = (): JSX.Element => {
                     tooltip={`Auto-refresh every ${LIVE_REFRESH_MS / 1000}s`}
                     bordered
                 />
+                <SavedViewsButton />
             </div>
             <div className="relative h-[360px] border rounded p-3">
                 {!hasMetricName ? (
