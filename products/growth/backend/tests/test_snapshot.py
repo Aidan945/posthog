@@ -1,6 +1,8 @@
 from posthog.test.base import BaseTest
 from unittest.mock import MagicMock
 
+from parameterized import parameterized
+
 from products.growth.backend.enrichment.snapshot import (
     SNAPSHOT_EVENT_NAME,
     SignupEnrichmentSnapshot,
@@ -84,9 +86,17 @@ class TestSignupEnrichmentSnapshot(BaseTest):
         assert emitted is False
         pha_client.capture.assert_not_called()
 
-    def test_icp_score_version_propagated_when_present(self) -> None:
+    @parameterized.expand(
+        [
+            ("present", "2026-07-01", True),
+            ("absent", None, False),
+        ]
+    )
+    def test_icp_score_version_in_properties(
+        self, _name: str, icp_score_version: str | None, expect_version: bool
+    ) -> None:
         pha_client = MagicMock()
-        snapshot = SignupEnrichmentSnapshot(icp_score=90, icp_score_version="2026-07-01")
+        snapshot = SignupEnrichmentSnapshot(icp_score=90, icp_score_version=icp_score_version)
 
         capture_signup_enrichment_snapshot(
             pha_client,
@@ -97,18 +107,6 @@ class TestSignupEnrichmentSnapshot(BaseTest):
 
         _, kwargs = pha_client.capture.call_args
         assert kwargs["properties"]["icp_score_at_signup"] == 90
-        assert kwargs["properties"]["icp_score_version_at_signup"] == "2026-07-01"
-
-    def test_icp_score_version_omitted_when_absent(self) -> None:
-        pha_client = MagicMock()
-        snapshot = SignupEnrichmentSnapshot(icp_score=90)
-
-        capture_signup_enrichment_snapshot(
-            pha_client,
-            organization_id=str(self.organization.id),
-            distinct_id="user-distinct-id",
-            snapshot=snapshot,
-        )
-
-        _, kwargs = pha_client.capture.call_args
-        assert "icp_score_version_at_signup" not in kwargs["properties"]
+        assert ("icp_score_version_at_signup" in kwargs["properties"]) is expect_version
+        if expect_version:
+            assert kwargs["properties"]["icp_score_version_at_signup"] == icp_score_version
