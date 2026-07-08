@@ -4,9 +4,8 @@ import type { ReactJsonViewProps } from '@microlink/react-json-view'
 import { useValues } from 'kea'
 import { Suspense, lazy } from 'react'
 
+import { themeLogic } from 'lib/logic/themeLogic'
 import { WrappingLoadingSkeleton } from 'lib/ui/WrappingLoadingSkeleton/WrappingLoadingSkeleton'
-
-import { themeLogic } from '~/layout/navigation-3000/themeLogic'
 
 const ReactJson = lazy(() => import('@microlink/react-json-view'))
 

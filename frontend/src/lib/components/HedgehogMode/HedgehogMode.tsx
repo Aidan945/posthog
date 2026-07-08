@@ -1,9 +1,9 @@
 import { useActions, useValues } from 'kea'
 import { Suspense, lazy } from 'react'
 
+import { themeLogic } from 'lib/logic/themeLogic'
 import { inStorybook } from 'lib/utils/dom'
 
-import { themeLogic } from '~/layout/navigation-3000/themeLogic'
 import { toolbarConfigLogic } from '~/toolbar/toolbarConfigLogic'
 
 import { useShortcut } from '../Shortcuts/useShortcut'
