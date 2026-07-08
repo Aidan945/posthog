@@ -18,6 +18,7 @@ from .data_color_theme import DataColorTheme
 from ..ducklake.models import DuckgresServer, DuckgresServerTeam, DuckgresSinkSchemaState
 from .element import Element
 from .element_group import ElementGroup
+from .enrichment_signup_snapshot import EnrichmentSignupSnapshot
 from .entity import Entity
 from .event.event import Event
 from .event_buffer import EventBuffer
@@ -104,6 +105,7 @@ __all__ = [
     "DuckgresSinkSchemaState",
     "Element",
     "ElementGroup",
+    "EnrichmentSignupSnapshot",
     "Entity",
     "Event",
     "EventBuffer",
