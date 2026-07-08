@@ -31,7 +31,7 @@ from products.tasks.backend.redis import get_tasks_cache
 if TYPE_CHECKING:
     from posthog.models.user import User
 
-    from products.tasks.backend.models import SandboxSnapshot, Task
+    from products.tasks.backend.models import SandboxSnapshot, Task, TaskRun
 
 logger = logging.getLogger(__name__)
 
@@ -441,9 +441,11 @@ def build_imported_mcp_server_configs(
     entries are skipped rather than failing the launch; the shape was validated
     at run creation, so this only guards against drift in stored data.
     """
+    if not isinstance(imported_servers, list):
+        return []
     taken = set(existing_names)
     configs: list[McpServerConfig] = []
-    for server in imported_servers or []:
+    for server in imported_servers:
         if not isinstance(server, dict):
             continue
         name = server.get("name")
@@ -468,6 +470,21 @@ def build_imported_mcp_server_configs(
             )
         )
     return configs
+
+
+def get_imported_mcp_server_configs(task_run: TaskRun, existing_names: Iterable[str]) -> list[McpServerConfig]:
+    """Sandbox configs for the run's client-imported MCP servers.
+
+    Claude-only for now: codex-acp hard-fails the session when any configured
+    MCP server is unreachable and the sandbox does no reachability pruning (an
+    unset adapter defaults to claude). Used both at launch and when a mid-run
+    refresh_session replaces the session's server list — the agent treats that
+    list as authoritative, so leaving these out would drop them from the run.
+    """
+    runtime_adapter = (task_run.state or {}).get("runtime_adapter")
+    if runtime_adapter not in (None, RuntimeAdapter.CLAUDE.value):
+        return []
+    return build_imported_mcp_server_configs(task_run.imported_mcp_servers, existing_names)
 
 
 def _resolve_mcp_consumer(interaction_origin: str | None) -> str:
