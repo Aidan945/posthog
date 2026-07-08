@@ -69,6 +69,13 @@ FREE_PLAN_COST_LIMIT = UserCostLimit(
     sustained_window_seconds=2592000,
 )
 
+USAGE_BASED_POSTHOG_CODE_COST_LIMIT = UserCostLimit(
+    burst_limit_usd=500.0,
+    burst_window_seconds=86400,
+    sustained_limit_usd=5000.0,
+    sustained_window_seconds=2592000,
+)
+
 
 _COST_LIMIT_KEY_ALIASES: dict[str, str] = {
     "array": "posthog_code",
@@ -169,6 +176,12 @@ class Settings(BaseSettings):
 
     user_cost_limits: dict[str, UserCostLimit] = DEFAULT_USER_COST_LIMITS
     user_cost_limits_disabled: bool = False
+
+    # Plan-key prefixes that bill usage-based. These plans get the usage-based
+    # PostHog Code user cost limit instead of the subscription-era default.
+    # Placeholder prefix until billing finalizes the plan key; override by env var
+    # without a deploy if the name differs.
+    usage_based_plan_prefixes: list[str] = ["posthog-code-usage"]
 
     default_fallback_cost_usd: float = 0.01
 
