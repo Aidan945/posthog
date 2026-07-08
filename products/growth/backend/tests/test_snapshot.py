@@ -1,17 +1,16 @@
 from posthog.test.base import BaseTest
 from unittest.mock import MagicMock
 
-from posthog.models.enrichment_signup_snapshot import EnrichmentSignupSnapshot
-
-from ee.billing.salesforce_enrichment.signup_snapshot import (
+from products.growth.backend.enrichment.snapshot import (
     SNAPSHOT_EVENT_NAME,
     SignupEnrichmentSnapshot,
     capture_signup_enrichment_snapshot,
 )
+from products.growth.backend.models import EnrichmentSignupSnapshot
 
 
 class TestSignupEnrichmentSnapshot(BaseTest):
-    def test_to_event_properties_suffixes_keys_and_drops_none(self):
+    def test_to_event_properties_suffixes_keys_and_drops_none(self) -> None:
         snapshot = SignupEnrichmentSnapshot(
             company_type="startup",
             headcount=42,
@@ -29,7 +28,7 @@ class TestSignupEnrichmentSnapshot(BaseTest):
         }
         assert "country_at_signup" not in properties
 
-    def test_emits_person_scoped_event_when_snapshot_lands(self):
+    def test_emits_person_scoped_event_when_snapshot_lands(self) -> None:
         pha_client = MagicMock()
         snapshot = SignupEnrichmentSnapshot(company_type="startup", headcount=42)
 
@@ -49,7 +48,7 @@ class TestSignupEnrichmentSnapshot(BaseTest):
         )
         assert EnrichmentSignupSnapshot.objects.filter(organization_id=self.organization.id).count() == 1
 
-    def test_written_once_second_call_does_not_re_emit(self):
+    def test_written_once_second_call_does_not_re_emit(self) -> None:
         pha_client = MagicMock()
         snapshot = SignupEnrichmentSnapshot(company_type="startup")
 
@@ -71,7 +70,7 @@ class TestSignupEnrichmentSnapshot(BaseTest):
         pha_client.capture.assert_called_once()
         assert EnrichmentSignupSnapshot.objects.filter(organization_id=self.organization.id).count() == 1
 
-    def test_does_not_emit_when_guard_row_preexists(self):
+    def test_does_not_emit_when_guard_row_preexists(self) -> None:
         pha_client = MagicMock()
         EnrichmentSignupSnapshot.objects.create(organization_id=self.organization.id)
 
@@ -85,7 +84,7 @@ class TestSignupEnrichmentSnapshot(BaseTest):
         assert emitted is False
         pha_client.capture.assert_not_called()
 
-    def test_icp_score_version_propagated_when_present(self):
+    def test_icp_score_version_propagated_when_present(self) -> None:
         pha_client = MagicMock()
         snapshot = SignupEnrichmentSnapshot(icp_score=90, icp_score_version="2026-07-01")
 
@@ -100,7 +99,7 @@ class TestSignupEnrichmentSnapshot(BaseTest):
         assert kwargs["properties"]["icp_score_at_signup"] == 90
         assert kwargs["properties"]["icp_score_version_at_signup"] == "2026-07-01"
 
-    def test_icp_score_version_omitted_when_absent(self):
+    def test_icp_score_version_omitted_when_absent(self) -> None:
         pha_client = MagicMock()
         snapshot = SignupEnrichmentSnapshot(icp_score=90)
 

@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 from posthoganalytics.client import Client
 
-from posthog.models.enrichment_signup_snapshot import EnrichmentSignupSnapshot
+from products.growth.backend.models import EnrichmentSignupSnapshot
 
 SNAPSHOT_EVENT_NAME = "enrichment_snapshot_at_signup"
 
