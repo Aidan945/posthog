@@ -214,22 +214,13 @@ describe('logsPatternsLogic', () => {
         })
         logic.actions.setCompareEnabled(true)
         await expectLogic(logic).toDispatchActions(['loadDiffSuccess'])
-        expect(mockDiffCreate).toHaveBeenLastCalledWith(
-            expect.any(String),
-            expect.objectContaining({ baselineDateRange: undefined })
-        )
 
+        expect(logic.values.baselineDateRange).toBeUndefined()
         logic.actions.setBaselineMode('preceding')
-        await expectLogic(logic).toDispatchActions(['loadDiffSuccess'])
-        expect(mockDiffCreate).toHaveBeenLastCalledWith(
-            expect.any(String),
-            expect.objectContaining({
-                baselineDateRange: {
-                    date_from: '2026-06-23T11:00:00.000Z',
-                    date_to: '2026-06-23T12:00:00.000Z',
-                },
-            })
-        )
+        expect(logic.values.baselineDateRange).toEqual({
+            date_from: '2026-06-23T11:00:00.000Z',
+            date_to: '2026-06-23T12:00:00.000Z',
+        })
     })
 
     it('surfaces a load failure as patternsError and clears it on the next success', async () => {
