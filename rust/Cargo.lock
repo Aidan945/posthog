@@ -1309,7 +1309,7 @@ dependencies = [
  "mockito",
  "moka",
  "natord",
- "posthog-rs 0.13.3",
+ "posthog-rs",
  "rayon",
  "rdkafka",
  "reqwest 0.12.28",
@@ -2407,7 +2407,7 @@ dependencies = [
  "metrics",
  "metrics-util",
  "mockito",
- "posthog-rs 0.17.0",
+ "posthog-rs",
  "serde_json",
  "tokio",
  "tracing",
@@ -2848,7 +2848,7 @@ dependencies = [
  "mockall",
  "moka",
  "personhog-common",
- "posthog-rs 0.17.0",
+ "posthog-rs",
  "posthog-symbol-data",
  "proguard",
  "rand 0.8.5",
@@ -7721,33 +7721,9 @@ dependencies = [
 
 [[package]]
 name = "posthog-rs"
-version = "0.13.3"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2136b5250589588b5b514cd64b286bfb8630f2223e4f56ab1fa3858f1600ab38"
-dependencies = [
- "backtrace",
- "brotli 7.0.0",
- "chrono",
- "derive_builder",
- "flate2",
- "os_info",
- "regex",
- "reqwest 0.13.4",
- "semver",
- "serde",
- "serde_json",
- "sha1",
- "tokio",
- "tracing",
- "uuid",
- "zstd",
-]
-
-[[package]]
-name = "posthog-rs"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1540f1b709f4e2e4898e4f626d2b00807c5fe18713aad00727862f976fc642ce"
+checksum = "a5bcf2bdf6c269ff65ff9d4f360bc5f42d560afff96a589d873326594d473bd6"
 dependencies = [
  "backtrace",
  "brotli 7.0.0",
