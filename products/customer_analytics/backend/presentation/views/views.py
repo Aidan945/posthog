@@ -1128,10 +1128,7 @@ class EventStreamViewSet(
             raise ValidationError(str(e))
         except api.EventStreamConflictError as e:
             raise Conflict(str(e))
-        return Response(
-            EventStreamSerializer(instance=api.get_event_stream(self.team_id, str(stream.id))).data,
-            status=status.HTTP_201_CREATED,
-        )
+        return Response(EventStreamSerializer(instance=stream).data, status=status.HTTP_201_CREATED)
 
     @extend_schema(parameters=[_EVENT_STREAM_ID_PARAM])
     def update(self, request: Request, *args, **kwargs) -> Response:
@@ -1153,7 +1150,7 @@ class EventStreamViewSet(
                 )
         except api.EventStreamValidationError as e:
             raise ValidationError(str(e))
-        return Response(EventStreamSerializer(instance=api.get_event_stream(self.team_id, str(stream.id))).data)
+        return Response(EventStreamSerializer(instance=stream).data)
 
     @extend_schema(parameters=[_EVENT_STREAM_ID_PARAM])
     def partial_update(self, request: Request, *args, **kwargs) -> Response:
