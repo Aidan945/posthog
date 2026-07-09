@@ -359,6 +359,51 @@ def should_refresh_mcp_token(run_id: str) -> bool:
     return get_tasks_cache().get(_mcp_token_issued_cache_key(run_id)) is None
 
 
+def _mcp_identity_cache_key(run_id: str) -> str:
+    return f"posthog_ai:task-run-mcp-identity:{run_id}"
+
+
+def mark_mcp_identity(run_id: str, user_id: int) -> None:
+    """Record which user's OAuth token the sandbox's MCP servers currently hold.
+
+    Written on every successful MCP refresh so identity transitions (a
+    different Slack actor taking over the thread) can be detected and never
+    silently skipped by the token-freshness rate limit. Kept for the sandbox's
+    plausible lifetime; on cache eviction the identity is assumed to be the
+    task creator, matching the boot-time token.
+    """
+    get_tasks_cache().set(_mcp_identity_cache_key(run_id), user_id, timeout=7 * 24 * 60 * 60)
+
+
+def get_last_mcp_identity(run_id: str) -> int | None:
+    """Return the user id the sandbox's MCP token was last minted for, or None
+    when unknown (never refreshed, or the cache entry was evicted)."""
+    return get_tasks_cache().get(_mcp_identity_cache_key(run_id))
+
+
+def _github_identity_cache_key(run_id: str) -> str:
+    return f"posthog_ai:task-run-github-identity:{run_id}"
+
+
+def mark_github_identity(run_id: str, user_integration_id: str) -> None:
+    """Record which UserIntegration's GitHub token (and git author identity)
+    the sandbox currently holds.
+
+    Written when a Slack actor's identity is swapped into a live sandbox, and
+    read by the credential refresh loop and the token-rotation propagation so
+    neither silently reverts the sandbox to the task creator's identity. On
+    cache eviction the identity is assumed to be the task's own integration,
+    matching the boot-time credentials.
+    """
+    get_tasks_cache().set(_github_identity_cache_key(run_id), str(user_integration_id), timeout=7 * 24 * 60 * 60)
+
+
+def get_last_github_identity(run_id: str) -> str | None:
+    """Return the UserIntegration id the sandbox's GitHub credentials were last
+    bound to, or None when unknown (never swapped, or the entry was evicted)."""
+    return get_tasks_cache().get(_github_identity_cache_key(run_id))
+
+
 @dataclass(frozen=True)
 class McpServerConfig:
     """Configuration for a remote MCP server matching the ACP McpServer schema.
@@ -873,6 +918,11 @@ def get_git_identity_env_vars(task: Task, state: dict[str, Any] | None = None) -
     if user is None:
         return {}
 
+    return git_identity_env_for_user(user)
+
+
+def git_identity_env_for_user(user: User) -> dict[str, str]:
+    """Git author/committer env vars attributing commits to ``user``."""
     name = user.get_full_name() or user.first_name or "PostHog User"
     email = user.email
 

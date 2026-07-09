@@ -18,9 +18,13 @@ from products.tasks.backend.models import Task, TaskRun
 from products.tasks.backend.temporal.process_task.utils import (
     PrAuthorshipMode,
     get_github_token,
+    get_last_github_identity,
     get_pr_authorship_mode,
     get_sandbox_github_token,
+    get_user_github_integration,
+    git_identity_env_for_user,
     is_caller_token_run,
+    mark_github_identity,
     resolve_user_github_integration_for_task,
 )
 
@@ -153,6 +157,12 @@ def _live_sandboxes_for_user_integration(user_integration_id: int) -> list[tuple
             continue
         if is_caller_token_run(str(run.id), run.state):
             continue
+        # A Slack actor may have swapped this sandbox's live identity to a
+        # different integration; propagating the task owner's token over it
+        # would silently revert the swap.
+        swapped_identity = get_last_github_identity(str(run.id))
+        if swapped_identity is not None and swapped_identity != str(user_integration_id):
+            continue
         rows.append((str(run.id), sandbox_id, run.task.repository))
     return rows
 
@@ -255,7 +265,11 @@ class GitHubSandboxCredential:
         if get_pr_authorship_mode(task, ctx.state) == PrAuthorshipMode.USER and not is_caller_token_run(
             ctx.run_id, ctx.state
         ):
-            integration = resolve_user_github_integration_for_task(task, repository=ctx.repository, allow_refresh=True)
+            integration = _swapped_identity_integration(ctx.run_id, task)
+            if integration is None:
+                integration = resolve_user_github_integration_for_task(
+                    task, repository=ctx.repository, allow_refresh=True
+                )
 
         if integration is not None:
             return self._refresh_shared_user_integration(sandbox, ctx, task, integration)
@@ -341,6 +355,96 @@ class GitHubSandboxCredential:
                 {"run_id": ctx.run_id, "task_id": ctx.task_id},
                 cause=e,
             )
+
+
+def _swapped_identity_integration(run_id: str, task: Task) -> UserGitHubIntegration | None:
+    """Return the UserGitHubIntegration a Slack actor swapped this run to, if any.
+
+    None when the run was never swapped, still holds the task's own identity,
+    or the swapped integration has since been deleted (in which case the
+    caller falls back to the task's own resolution)."""
+    swapped_id = get_last_github_identity(run_id)
+    if swapped_id is None or swapped_id == str(task.github_user_integration_id):
+        return None
+    try:
+        integration = UserIntegration.objects.get(id=swapped_id, kind="github")
+    except UserIntegration.DoesNotExist:
+        return None
+    return UserGitHubIntegration(integration)
+
+
+def refresh_sandbox_github_for_user(task_run: TaskRun, user) -> bool:
+    """Rebind a live sandbox's GitHub credentials and git author identity to ``user``.
+
+    Rewrites the git remote token, the agentsh GITHUB_TOKEN/GH_TOKEN entries,
+    and the GIT_AUTHOR_*/GIT_COMMITTER_* entries so the agent's subsequent
+    commits and ``gh`` calls (including ``gh pr create``) act as ``user``. The
+    agentsh exec wrapper re-sources the env file per command, so no sandbox
+    restart is needed.
+
+    No-ops (returning False) when the run isn't user-authored, is pinned to a
+    caller-supplied token, the sandbox is gone, ``user`` has no personal GitHub
+    install covering the task's repository, or the sandbox already holds this
+    identity — the previous identity keeps authoring in those cases. Raises
+    only on unexpected errors; expected credential problems are logged.
+    """
+    task = task_run.task
+    run_id = str(task_run.id)
+    state = task_run.state or {}
+
+    if get_pr_authorship_mode(task, state) != PrAuthorshipMode.USER or is_caller_token_run(run_id, state):
+        return False
+
+    sandbox_id = state.get("sandbox_id")
+    if not sandbox_id:
+        return False
+
+    integration = get_user_github_integration(user, repository=task.repository, allow_refresh=True)
+    if integration is None:
+        logger.info(
+            "GitHub identity swap skipped: actor has no personal install covering the repository",
+            extra={"run_id": run_id, "user_id": user.id, "repository": task.repository},
+        )
+        return False
+
+    current_identity = get_last_github_identity(run_id) or str(task.github_user_integration_id)
+    integration_id = str(integration.integration.id)
+    if integration_id == current_identity:
+        # Already this identity; the credential refresh loop keeps the token fresh.
+        return False
+
+    try:
+        token = resolve_coordinated_user_token(integration)
+    except (ReauthorizationRequired, UserIntegration.DoesNotExist):
+        logger.info(
+            "GitHub identity swap skipped: actor integration requires reauthorization",
+            extra={"run_id": run_id, "user_id": user.id},
+        )
+        return False
+    if not token:
+        return False
+
+    from products.tasks.backend.logic.services.sandbox import (
+        Sandbox,  # noqa: PLC0415 — keep sandbox deps off the module import path
+    )
+
+    sandbox = Sandbox.get_by_id(sandbox_id)
+    if not sandbox.is_running():
+        return False
+
+    apply_github_credentials_to_sandbox(sandbox, task.repository, token)
+    update_sandbox_env_file(sandbox, git_identity_env_for_user(user))
+    mark_github_identity(run_id, integration_id)
+    logger.info(
+        "Swapped sandbox GitHub identity to live actor",
+        extra={
+            "run_id": run_id,
+            "user_id": user.id,
+            "from_integration_id": current_identity,
+            "to_integration_id": integration_id,
+        },
+    )
+    return True
 
 
 def build_sandbox_credentials(ctx: "TaskProcessingContext") -> list[SandboxCredential]:

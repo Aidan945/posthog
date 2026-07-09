@@ -19,7 +19,7 @@ import re
 import logging
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timedelta
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID, uuid4
 
 from django.conf import settings
@@ -27,6 +27,9 @@ from django.db import IntegrityError, transaction
 from django.db.models import CharField, Count, Exists, F, Min, OuterRef, Q, QuerySet, Subquery
 from django.db.models.fields.json import KeyTextTransform
 from django.utils import timezone as django_timezone
+
+if TYPE_CHECKING:
+    from posthog.temporal.oauth import PosthogMcpScopes
 
 import posthoganalytics
 
@@ -177,6 +180,8 @@ __all__ = [
     "read_task_run_logs",
     "redeem_code_invite",
     "redispatch_task_run",
+    "refresh_sandbox_github_for_user",
+    "refresh_sandbox_mcp_for_user",
     "refresh_team_code_workstreams",
     "relay_task_run_message",
     "reset_code_workflow_bindings",
@@ -4581,3 +4586,50 @@ def forward_thread_message(
         message.forwarded_run = run
         message.save(update_fields=["forwarded_to_agent_at", "forwarded_by", "forwarded_run"])
     return "ok", _thread_message_to_dto(message)
+
+
+def refresh_sandbox_mcp_for_user(
+    run_id: str | UUID,
+    user_id: int,
+    *,
+    scopes: "PosthogMcpScopes" = "full",
+    auth_token: str | None = None,
+    force: bool = False,
+):
+    """Mint an MCP OAuth token scoped to ``user_id`` and push fresh MCP server
+    configs into a run's live sandbox so subsequent agent actions act under
+    that user's identity.
+
+    Used by Slack follow-ups when a teammate other than the original task
+    creator takes over the conversation, so PostHog MCP writes are attributed
+    to the live actor rather than the long-gone task creator.
+    """
+    from posthog.models import User  # noqa: PLC0415 — keep ORM off the api import path
+
+    from products.tasks.backend.temporal.process_task.activities.send_followup_to_sandbox import (  # noqa: PLC0415 — keep sandbox deps off the api import path
+        refresh_sandbox_mcp_for_user as _refresh,
+    )
+
+    run = TaskRun.objects.select_related("task__created_by").get(id=run_id)
+    user = User.objects.get(id=user_id)
+    return _refresh(run, user, scopes=scopes, auth_token=auth_token, force=force)
+
+
+def refresh_sandbox_github_for_user(run_id: str | UUID, user_id: int) -> bool:
+    """Rebind a run's live sandbox GitHub credentials and git author identity
+    to ``user_id`` so subsequent commits and PRs are authored by them.
+
+    Used by Slack follow-ups when a teammate with their own personal GitHub
+    install takes over the conversation. No-op (False) when the actor has no
+    install covering the task's repository or the sandbox already holds their
+    identity — the previous identity keeps authoring.
+    """
+    from posthog.models import User  # noqa: PLC0415 — keep ORM off the api import path
+
+    from products.tasks.backend.temporal.process_task.sandbox_credentials import (  # noqa: PLC0415 — keep sandbox deps off the api import path
+        refresh_sandbox_github_for_user as _refresh_github,
+    )
+
+    run = TaskRun.objects.select_related("task__created_by").get(id=run_id)
+    user = User.objects.get(id=user_id)
+    return _refresh_github(run, user)
