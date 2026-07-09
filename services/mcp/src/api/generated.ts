@@ -21291,8 +21291,8 @@ export namespace Schemas {
     }
 
     /**
-     * The team's event stream — a live feed of selected accounts' events posted to a
-     * Slack channel. One stream per team.
+     * The caller's event stream — a live feed of selected accounts' events posted to a
+     * Slack channel of their choice. One stream per user per project.
      */
     export interface EventStream {
       readonly id: string;
@@ -38174,8 +38174,8 @@ export namespace Schemas {
     }
 
     /**
-     * The team's event stream — a live feed of selected accounts' events posted to a
-     * Slack channel. One stream per team.
+     * The caller's event stream — a live feed of selected accounts' events posted to a
+     * Slack channel of their choice. One stream per user per project.
      */
     export interface PatchedEventStream {
       readonly id?: string;

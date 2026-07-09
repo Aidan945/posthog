@@ -720,8 +720,8 @@ export interface PatchedCustomerProfileConfigApi {
 }
 
 /**
- * The team's event stream — a live feed of selected accounts' events posted to a
- * Slack channel. One stream per team.
+ * The caller's event stream — a live feed of selected accounts' events posted to a
+ * Slack channel of their choice. One stream per user per project.
  */
 export interface EventStreamApi {
     readonly id: string
@@ -757,8 +757,8 @@ export interface EventStreamApi {
 }
 
 /**
- * The team's event stream — a live feed of selected accounts' events posted to a
- * Slack channel. One stream per team.
+ * The caller's event stream — a live feed of selected accounts' events posted to a
+ * Slack channel of their choice. One stream per user per project.
  */
 export interface PatchedEventStreamApi {
     readonly id?: string
