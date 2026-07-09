@@ -184,6 +184,7 @@ export interface RoleLookupResponseApi {
  * * `slack` - Slack
  * * `slack-posthog-code` - Slack Posthog Code
  * * `snapchat` - Snapchat
+ * * `snowflake` - Snowflake
  * * `stripe` - Stripe
  * * `tiktok-ads` - Tiktok Ads
  * * `twilio` - Twilio
@@ -227,6 +228,7 @@ export const IntegrationKindEnumApi = {
     Slack: 'slack',
     SlackPosthogCode: 'slack-posthog-code',
     Snapchat: 'snapchat',
+    Snowflake: 'snowflake',
     Stripe: 'stripe',
     TiktokAds: 'tiktok-ads',
     Twilio: 'twilio',
@@ -472,6 +474,7 @@ export interface IntegrationAccessRequestApi {
      * * `slack` - Slack
      * * `slack-posthog-code` - Slack Posthog Code
      * * `snapchat` - Snapchat
+     * * `snowflake` - Snowflake
      * * `stripe` - Stripe
      * * `tiktok-ads` - Tiktok Ads
      * * `twilio` - Twilio
@@ -560,6 +563,7 @@ export type IntegrationsListParams = {
      * * `slack` - Slack
      * * `slack-posthog-code` - Slack Posthog Code
      * * `snapchat` - Snapchat
+     * * `snowflake` - Snowflake
      * * `stripe` - Stripe
      * * `tiktok-ads` - Tiktok Ads
      * * `twilio` - Twilio
@@ -614,6 +618,7 @@ export const IntegrationsListKind = {
     Slack: 'slack',
     SlackPosthogCode: 'slack-posthog-code',
     Snapchat: 'snapchat',
+    Snowflake: 'snowflake',
     Stripe: 'stripe',
     TiktokAds: 'tiktok-ads',
     Twilio: 'twilio',

@@ -28927,6 +28927,7 @@ export namespace Schemas {
      * * `slack` - Slack
      * * `slack-posthog-code` - Slack Posthog Code
      * * `snapchat` - Snapchat
+     * * `snowflake` - Snowflake
      * * `stripe` - Stripe
      * * `tiktok-ads` - Tiktok Ads
      * * `twilio` - Twilio
@@ -28971,6 +28972,7 @@ export namespace Schemas {
       Slack: 'slack',
       SlackPosthogCode: 'slack-posthog-code',
       Snapchat: 'snapchat',
+      Snowflake: 'snowflake',
       Stripe: 'stripe',
       TiktokAds: 'tiktok-ads',
       Twilio: 'twilio',
@@ -29015,6 +29017,7 @@ export namespace Schemas {
        * * `slack` - Slack
        * * `slack-posthog-code` - Slack Posthog Code
        * * `snapchat` - Snapchat
+       * * `snowflake` - Snowflake
        * * `stripe` - Stripe
        * * `tiktok-ads` - Tiktok Ads
        * * `twilio` - Twilio
@@ -60861,6 +60864,7 @@ export namespace Schemas {
      * * `slack` - Slack
      * * `slack-posthog-code` - Slack Posthog Code
      * * `snapchat` - Snapchat
+     * * `snowflake` - Snowflake
      * * `stripe` - Stripe
      * * `tiktok-ads` - Tiktok Ads
      * * `twilio` - Twilio
@@ -60916,6 +60920,7 @@ export namespace Schemas {
       Slack: 'slack',
       SlackPosthogCode: 'slack-posthog-code',
       Snapchat: 'snapchat',
+      Snowflake: 'snowflake',
       Stripe: 'stripe',
       TiktokAds: 'tiktok-ads',
       Twilio: 'twilio',
@@ -68010,6 +68015,7 @@ export namespace Schemas {
      * * `slack` - Slack
      * * `slack-posthog-code` - Slack Posthog Code
      * * `snapchat` - Snapchat
+     * * `snowflake` - Snowflake
      * * `stripe` - Stripe
      * * `tiktok-ads` - Tiktok Ads
      * * `twilio` - Twilio
@@ -68065,6 +68071,7 @@ export namespace Schemas {
       Slack: 'slack',
       SlackPosthogCode: 'slack-posthog-code',
       Snapchat: 'snapchat',
+      Snowflake: 'snowflake',
       Stripe: 'stripe',
       TiktokAds: 'tiktok-ads',
       Twilio: 'twilio',
