@@ -106,6 +106,8 @@ export const MetricsViewer = (): JSX.Element => {
         viewMode,
         statSummary,
         groupByKeys,
+        attributeKeyOptions,
+        attributeKeyOptionsLoading,
         filterGroup,
         attributeEndpointFilters,
         chartSeries,
@@ -126,6 +128,8 @@ export const MetricsViewer = (): JSX.Element => {
         setViewMode,
         setStatSummary,
         setGroupByKeys,
+        setGroupBySearch,
+        loadAttributeKeyOptions,
         setFilterGroup,
         setLiveRefresh,
         fetchQueryResults,
@@ -221,7 +225,10 @@ export const MetricsViewer = (): JSX.Element => {
                     allowCustomValues
                     value={groupByKeys}
                     onChange={setGroupByKeys}
-                    options={[]}
+                    options={attributeKeyOptions}
+                    loading={attributeKeyOptionsLoading}
+                    onInputChange={setGroupBySearch}
+                    onFocus={() => loadAttributeKeyOptions({})}
                     placeholder="Group by attribute…"
                     className="min-w-[12rem]"
                 />

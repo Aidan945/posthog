@@ -1,3 +1,5 @@
+import { expectLogic } from 'kea-test-utils'
+
 import { initKeaTests } from '~/test/init'
 import {
     FilterLogicalOperator,
@@ -7,7 +9,7 @@ import {
     UniversalFiltersGroupValue,
 } from '~/types'
 
-import { metricsValuesRetrieve } from 'products/metrics/frontend/generated/api'
+import { metricsAttributesRetrieve, metricsValuesRetrieve } from 'products/metrics/frontend/generated/api'
 
 import { metricNamePickerLogic } from './metricNamePickerLogic'
 import { metricsViewerLogic, NEW_QUERY_STARTED_ERROR_MESSAGE } from './metricsViewerLogic'
@@ -15,6 +17,7 @@ import { metricsViewerLogic, NEW_QUERY_STARTED_ERROR_MESSAGE } from './metricsVi
 jest.mock('products/metrics/frontend/generated/api', () => ({
     ...jest.requireActual('products/metrics/frontend/generated/api'),
     metricsValuesRetrieve: jest.fn(),
+    metricsAttributesRetrieve: jest.fn(),
 }))
 
 const filterGroupWith = (filters: Record<string, any>[]): UniversalFiltersGroup => ({
@@ -144,5 +147,26 @@ describe('metricsViewerLogic', () => {
             ])
         )
         expect(logic.values.queryFilters).toEqual([{ key: 'env', op: 'eq', value: 'prod' }])
+    })
+
+    // The group-by picker shipped with `options={[]}` and never fetched, so it offered no
+    // attribute keys. Typing must query the attributes endpoint (scoped by search) and map
+    // `{ name }` rows into `{ key, label }` options.
+    it('group-by search fetches attribute keys and maps them into options', async () => {
+        jest.mocked(metricsAttributesRetrieve).mockResolvedValue({
+            results: [{ name: 'env' }, { name: 'service_name' }],
+            count: 2,
+        })
+        await expectLogic(logic, () => {
+            logic.actions.setGroupBySearch('e')
+        }).toDispatchActions(['loadAttributeKeyOptions', 'loadAttributeKeyOptionsSuccess'])
+        expect(metricsAttributesRetrieve).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ search: 'e' })
+        )
+        expect(logic.values.attributeKeyOptions).toEqual([
+            { key: 'env', label: 'env' },
+            { key: 'service_name', label: 'service_name' },
+        ])
     })
 })
