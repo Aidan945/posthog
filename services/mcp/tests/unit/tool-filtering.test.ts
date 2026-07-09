@@ -764,6 +764,7 @@ describe('Tool Filtering - Feature Flags', () => {
                 'mcp-feedback-tool',
                 'user-interviews',
                 'customer-analytics-csp',
+                'customer-analytics-event-stream',
                 'notebooks-collaboration',
                 'replay-vision',
                 'tasks',
@@ -778,7 +779,7 @@ describe('Tool Filtering - Feature Flags', () => {
                 'endpoints-ai-materialization-fix',
             ])
         )
-        expect(flags).toHaveLength(20)
+        expect(flags).toHaveLength(21)
     })
 
     // Exercise the real predicate (toolPassesFlagGate) over hand-rolled entries
