@@ -179,9 +179,8 @@ __all__ = [
     "read_task_run_artifact",
     "read_task_run_logs",
     "redeem_code_invite",
+    "rebind_sandbox_identity_for_user",
     "redispatch_task_run",
-    "refresh_sandbox_github_for_user",
-    "refresh_sandbox_mcp_for_user",
     "refresh_team_code_workstreams",
     "relay_task_run_message",
     "reset_code_workflow_bindings",
@@ -4588,48 +4587,48 @@ def forward_thread_message(
     return "ok", _thread_message_to_dto(message)
 
 
-def refresh_sandbox_mcp_for_user(
+def rebind_sandbox_identity_for_user(
     run_id: str | UUID,
     user_id: int,
     *,
     scopes: "PosthogMcpScopes" = "full",
     auth_token: str | None = None,
-    force: bool = False,
-):
-    """Mint an MCP OAuth token scoped to ``user_id`` and push fresh MCP server
-    configs into a run's live sandbox so subsequent agent actions act under
-    that user's identity.
+) -> None:
+    """Rebind a run's live sandbox to ``user_id``: mint a PostHog MCP OAuth
+    token for them and push fresh MCP configs, then swap the GitHub token and
+    git author identity when they have a personal install covering the task's
+    repository (otherwise the previous GitHub identity keeps authoring).
 
-    Used by Slack follow-ups when a teammate other than the original task
-    creator takes over the conversation, so PostHog MCP writes are attributed
-    to the live actor rather than the long-gone task creator.
+    Used by Slack follow-ups so a teammate taking over the conversation acts
+    as themselves — insights, dashboards, commits, and PRs attribute to the
+    live actor rather than the task creator. Best-effort by contract: each
+    credential kind is rebound independently and failures are logged, never
+    raised, so a rebind problem can't block the message that triggered it.
     """
     from posthog.models import User  # noqa: PLC0415 — keep ORM off the api import path
 
     from products.tasks.backend.temporal.process_task.activities.send_followup_to_sandbox import (  # noqa: PLC0415 — keep sandbox deps off the api import path
-        refresh_sandbox_mcp_for_user as _refresh,
+        refresh_sandbox_mcp_for_user,
     )
-
-    run = TaskRun.objects.select_related("task__created_by").get(id=run_id)
-    user = User.objects.get(id=user_id)
-    return _refresh(run, user, scopes=scopes, auth_token=auth_token, force=force)
-
-
-def refresh_sandbox_github_for_user(run_id: str | UUID, user_id: int) -> bool:
-    """Rebind a run's live sandbox GitHub credentials and git author identity
-    to ``user_id`` so subsequent commits and PRs are authored by them.
-
-    Used by Slack follow-ups when a teammate with their own personal GitHub
-    install takes over the conversation. No-op (False) when the actor has no
-    install covering the task's repository or the sandbox already holds their
-    identity — the previous identity keeps authoring.
-    """
-    from posthog.models import User  # noqa: PLC0415 — keep ORM off the api import path
-
     from products.tasks.backend.temporal.process_task.sandbox_credentials import (  # noqa: PLC0415 — keep sandbox deps off the api import path
-        refresh_sandbox_github_for_user as _refresh_github,
+        refresh_sandbox_github_for_user,
     )
 
-    run = TaskRun.objects.select_related("task__created_by").get(id=run_id)
-    user = User.objects.get(id=user_id)
-    return _refresh_github(run, user)
+    try:
+        run = TaskRun.objects.select_related("task").get(id=run_id)
+        user = User.objects.get(id=user_id)
+    except Exception as e:
+        logger.warning(
+            "Sandbox identity rebind skipped: could not load run or user",
+            extra={"run_id": str(run_id), "user_id": user_id, "error": str(e)},
+        )
+        return
+
+    try:
+        refresh_sandbox_mcp_for_user(run, user, scopes=scopes, auth_token=auth_token)
+    except Exception:
+        logger.exception("Sandbox MCP identity rebind failed", extra={"run_id": str(run_id), "user_id": user_id})
+    try:
+        refresh_sandbox_github_for_user(run, user)
+    except Exception:
+        logger.exception("Sandbox GitHub identity rebind failed", extra={"run_id": str(run_id), "user_id": user_id})

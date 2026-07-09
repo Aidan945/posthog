@@ -359,49 +359,49 @@ def should_refresh_mcp_token(run_id: str) -> bool:
     return get_tasks_cache().get(_mcp_token_issued_cache_key(run_id)) is None
 
 
-def _mcp_identity_cache_key(run_id: str) -> str:
-    return f"posthog_ai:task-run-mcp-identity:{run_id}"
+# How long a sandbox's swapped identity is remembered — comfortably past any
+# plausible sandbox lifetime. On eviction the identity is assumed to be the
+# boot-time one (the task creator / the task's own integration).
+SANDBOX_IDENTITY_TTL_SECONDS = 7 * 24 * 60 * 60
+
+SANDBOX_IDENTITY_KINDS = ("mcp", "github")
 
 
-def mark_mcp_identity(run_id: str, user_id: int) -> None:
-    """Record which user's OAuth token the sandbox's MCP servers currently hold.
+def _sandbox_identity_cache_key(run_id: str, kind: str) -> str:
+    return f"posthog_ai:task-run-{kind}-identity:{run_id}"
 
-    Written on every successful MCP refresh so identity transitions (a
-    different Slack actor taking over the thread) can be detected and never
-    silently skipped by the token-freshness rate limit. Kept for the sandbox's
-    plausible lifetime; on cache eviction the identity is assumed to be the
-    task creator, matching the boot-time token.
+
+def mark_sandbox_identity(run_id: str, kind: str, value: int | str) -> None:
+    """Record which identity the sandbox currently holds for a credential kind.
+
+    ``mcp`` stores the user id the OAuth token was minted for; ``github``
+    stores the UserIntegration id the token and git author belong to. Written
+    on every successful rebind so identity transitions (a different Slack
+    actor taking over the thread) are detected and never silently skipped by
+    the per-credential freshness rate limits; read by the credential refresh
+    loop and token-rotation propagation so neither reverts a swap.
     """
-    get_tasks_cache().set(_mcp_identity_cache_key(run_id), user_id, timeout=7 * 24 * 60 * 60)
+    get_tasks_cache().set(_sandbox_identity_cache_key(run_id, kind), value, timeout=SANDBOX_IDENTITY_TTL_SECONDS)
 
 
-def get_last_mcp_identity(run_id: str) -> int | None:
-    """Return the user id the sandbox's MCP token was last minted for, or None
-    when unknown (never refreshed, or the cache entry was evicted)."""
-    return get_tasks_cache().get(_mcp_identity_cache_key(run_id))
+def get_last_sandbox_identity(run_id: str, kind: str) -> int | str | None:
+    """Return the identity the sandbox's credentials were last bound to for a
+    kind, or None when unknown (never swapped, or the entry was evicted)."""
+    return get_tasks_cache().get(_sandbox_identity_cache_key(run_id, kind))
 
 
-def _github_identity_cache_key(run_id: str) -> str:
-    return f"posthog_ai:task-run-github-identity:{run_id}"
+def clear_sandbox_identities(run_id: str) -> None:
+    """Forget a run's swapped identities.
 
-
-def mark_github_identity(run_id: str, user_integration_id: str) -> None:
-    """Record which UserIntegration's GitHub token (and git author identity)
-    the sandbox currently holds.
-
-    Written when a Slack actor's identity is swapped into a live sandbox, and
-    read by the credential refresh loop and the token-rotation propagation so
-    neither silently reverts the sandbox to the task creator's identity. On
-    cache eviction the identity is assumed to be the task's own integration,
-    matching the boot-time credentials.
+    Called when a sandbox is restored from a snapshot: the resume path
+    re-applies the boot-time (task creator) credentials, so any remembered
+    swap would diverge from what the sandbox actually holds — blocking the
+    actor's next rebind as a same-identity no-op while the refresh loop pulls
+    the other way.
     """
-    get_tasks_cache().set(_github_identity_cache_key(run_id), str(user_integration_id), timeout=7 * 24 * 60 * 60)
-
-
-def get_last_github_identity(run_id: str) -> str | None:
-    """Return the UserIntegration id the sandbox's GitHub credentials were last
-    bound to, or None when unknown (never swapped, or the entry was evicted)."""
-    return get_tasks_cache().get(_github_identity_cache_key(run_id))
+    cache = get_tasks_cache()
+    for kind in SANDBOX_IDENTITY_KINDS:
+        cache.delete(_sandbox_identity_cache_key(run_id, kind))
 
 
 @dataclass(frozen=True)

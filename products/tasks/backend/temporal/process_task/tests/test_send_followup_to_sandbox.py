@@ -16,11 +16,11 @@ from products.tasks.backend.temporal.process_task.activities.send_followup_to_sa
 )
 from products.tasks.backend.temporal.process_task.utils import (
     McpServerConfig,
-    _mcp_identity_cache_key,
     _mcp_token_issued_cache_key,
-    get_last_mcp_identity,
-    mark_mcp_identity,
+    _sandbox_identity_cache_key,
+    get_last_sandbox_identity,
     mark_mcp_token_issued,
+    mark_sandbox_identity,
 )
 
 pytestmark = pytest.mark.django_db
@@ -36,7 +36,7 @@ def _clear_mcp_token_cache():
         _mcp_token_issued_cache_key("run-1"),
         _mcp_token_issued_cache_key("run-1:42"),
         _mcp_token_issued_cache_key("run-1:43"),
-        _mcp_identity_cache_key("run-1"),
+        _sandbox_identity_cache_key("run-1", "mcp"),
     ]
     for key in keys:
         cache.delete(key)
@@ -113,9 +113,8 @@ class TestRefreshSandboxMcpForUser:
 
         task_run = _make_task_run_mock()
         user = _make_user_mock(user_id=42)
-        result = refresh_sandbox_mcp_for_user(task_run, user, scopes="read_only", auth_token="jwt")
+        refresh_sandbox_mcp_for_user(task_run, user, scopes="read_only", auth_token="jwt")
 
-        assert result is not None and result.success is True
         mock_oauth.assert_called_once_with(user, 7, scopes="read_only", application="array")
         mock_ph_configs.assert_called_once_with(
             token="fresh-token", project_id=7, scopes="read_only", interaction_origin=None, task_id="task-1"
@@ -255,27 +254,7 @@ class TestRefreshIntervalGate:
 
     @patch(_SEND_REFRESH_PATH)
     @patch(_OAUTH_FOR_USER_PATH)
-    def test_force_bypasses_rate_limit(self, mock_oauth, mock_send_refresh):
-        """Cross-user follow-ups pass ``force=True`` so an identity transition
-        is never silently dropped on a recent same-run refresh."""
-        mark_mcp_token_issued("run-1:42")
-        mock_oauth.return_value = "fresh-token"
-        mock_send_refresh.return_value = CommandResult(success=True, status_code=200)
-        with (
-            patch(_PH_CONFIGS_PATH, return_value=[_make_mcp_config()]),
-            patch(_USER_CONFIGS_PATH, return_value=[]),
-            patch(_OAUTH_APP_PATH, return_value="array"),
-        ):
-            refresh_sandbox_mcp_for_user(
-                _make_task_run_mock(), _make_user_mock(), scopes="read_only", auth_token=None, force=True
-            )
-
-        mock_oauth.assert_called_once()
-        mock_send_refresh.assert_called_once()
-
-    @patch(_SEND_REFRESH_PATH)
-    @patch(_OAUTH_FOR_USER_PATH)
-    def test_identity_transition_bypasses_rate_limit_without_force(self, mock_oauth, mock_send_refresh):
+    def test_identity_transition_bypasses_rate_limit(self, mock_oauth, mock_send_refresh):
         """When the actor differs from the identity the sandbox currently
         holds (default: the task creator), the refresh must go through even if
         this actor's own rate-limit window is warm — an identity swap is never
@@ -294,7 +273,7 @@ class TestRefreshIntervalGate:
 
         mock_oauth.assert_called_once()
         mock_send_refresh.assert_called_once()
-        assert get_last_mcp_identity("run-1") == 43
+        assert get_last_sandbox_identity("run-1", "mcp") == 43
 
     @patch(_SEND_REFRESH_PATH)
     @patch(_OAUTH_FOR_USER_PATH)
@@ -303,7 +282,7 @@ class TestRefreshIntervalGate:
         a message from the task creator must rebind the MCP back to them —
         "actor == creator" alone is not proof the sandbox is authed as the
         creator."""
-        mark_mcp_identity("run-1", 43)
+        mark_sandbox_identity("run-1", "mcp", 43)
         mark_mcp_token_issued("run-1:42")
         mock_oauth.return_value = "fresh-token"
         mock_send_refresh.return_value = CommandResult(success=True, status_code=200)
@@ -317,7 +296,7 @@ class TestRefreshIntervalGate:
             )
 
         mock_send_refresh.assert_called_once()
-        assert get_last_mcp_identity("run-1") == 42
+        assert get_last_sandbox_identity("run-1", "mcp") == 42
 
     @patch(_SEND_REFRESH_PATH)
     @patch(_USER_CONFIGS_PATH)

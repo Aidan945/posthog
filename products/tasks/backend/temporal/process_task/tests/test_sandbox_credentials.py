@@ -470,10 +470,11 @@ class TestRefreshSandboxGithubForUser:
 
     _MODULE = "products.tasks.backend.temporal.process_task.sandbox_credentials"
 
-    def _task_run(self, github_user_integration_id="ui-creator", sandbox_id="sb-1"):
+    def _task_run(self, github_user_integration_id="ui-creator", sandbox_id="sb-1", created_by_id=1):
         task = MagicMock()
         task.repository = "acme/repo"
         task.github_user_integration_id = github_user_integration_id
+        task.created_by_id = created_by_id
         task_run = MagicMock()
         task_run.id = "run-gh-1"
         task_run.task = task
@@ -496,15 +497,15 @@ class TestRefreshSandboxGithubForUser:
     def _clear_identity_cache(self):
         from django.core.cache import cache
 
-        from products.tasks.backend.temporal.process_task.utils import _github_identity_cache_key
+        from products.tasks.backend.temporal.process_task.utils import _sandbox_identity_cache_key
 
-        cache.delete(_github_identity_cache_key("run-gh-1"))
+        cache.delete(_sandbox_identity_cache_key("run-gh-1", "github"))
         yield
-        cache.delete(_github_identity_cache_key("run-gh-1"))
+        cache.delete(_sandbox_identity_cache_key("run-gh-1", "github"))
 
     def test_swaps_token_and_git_author_and_marks_identity(self):
         from products.tasks.backend.temporal.process_task.sandbox_credentials import refresh_sandbox_github_for_user
-        from products.tasks.backend.temporal.process_task.utils import PrAuthorshipMode, get_last_github_identity
+        from products.tasks.backend.temporal.process_task.utils import PrAuthorshipMode, get_last_sandbox_identity
 
         sandbox = MagicMock()
         sandbox.is_running.return_value = True
@@ -514,23 +515,26 @@ class TestRefreshSandboxGithubForUser:
             patch(f"{self._MODULE}.is_caller_token_run", return_value=False),
             patch(f"{self._MODULE}.get_user_github_integration", return_value=self._integration()),
             patch(f"{self._MODULE}.resolve_coordinated_user_token", return_value="ghu_actor_token"),
-            patch(f"{self._MODULE}.apply_github_credentials_to_sandbox") as mock_apply,
+            patch(f"{self._MODULE}.set_git_remote_token") as mock_remote,
             patch(f"{self._MODULE}.update_sandbox_env_file") as mock_env,
             patch("products.tasks.backend.logic.services.sandbox.Sandbox.get_by_id", return_value=sandbox),
         ):
             assert refresh_sandbox_github_for_user(self._task_run(), actor) is True
 
-        mock_apply.assert_called_once_with(sandbox, "acme/repo", "ghu_actor_token")
+        mock_remote.assert_called_once_with(sandbox, "acme/repo", "ghu_actor_token")
+        # Token and git author land in one env-file read-modify-write.
         mock_env.assert_called_once_with(
             sandbox,
             {
+                "GITHUB_TOKEN": "ghu_actor_token",
+                "GH_TOKEN": "ghu_actor_token",
                 "GIT_AUTHOR_NAME": "Bob Builder",
                 "GIT_AUTHOR_EMAIL": "bob@acme.com",
                 "GIT_COMMITTER_NAME": "Bob Builder",
                 "GIT_COMMITTER_EMAIL": "bob@acme.com",
             },
         )
-        assert get_last_github_identity("run-gh-1") == "ui-actor"
+        assert get_last_sandbox_identity("run-gh-1", "github") == "ui-actor"
 
     def test_skips_actor_without_covering_integration(self):
         from products.tasks.backend.temporal.process_task.sandbox_credentials import refresh_sandbox_github_for_user
@@ -540,11 +544,11 @@ class TestRefreshSandboxGithubForUser:
             patch(f"{self._MODULE}.get_pr_authorship_mode", return_value=PrAuthorshipMode.USER),
             patch(f"{self._MODULE}.is_caller_token_run", return_value=False),
             patch(f"{self._MODULE}.get_user_github_integration", return_value=None),
-            patch(f"{self._MODULE}.apply_github_credentials_to_sandbox") as mock_apply,
+            patch(f"{self._MODULE}.update_sandbox_env_file") as mock_env,
         ):
             assert refresh_sandbox_github_for_user(self._task_run(), self._actor()) is False
 
-        mock_apply.assert_not_called()
+        mock_env.assert_not_called()
 
     def test_skips_bot_authored_runs(self):
         from products.tasks.backend.temporal.process_task.sandbox_credentials import refresh_sandbox_github_for_user
@@ -576,11 +580,11 @@ class TestRefreshSandboxGithubForUser:
         from products.tasks.backend.temporal.process_task.sandbox_credentials import refresh_sandbox_github_for_user
         from products.tasks.backend.temporal.process_task.utils import (
             PrAuthorshipMode,
-            get_last_github_identity,
-            mark_github_identity,
+            get_last_sandbox_identity,
+            mark_sandbox_identity,
         )
 
-        mark_github_identity("run-gh-1", "ui-actor")
+        mark_sandbox_identity("run-gh-1", "github", "ui-actor")
         sandbox = MagicMock()
         sandbox.is_running.return_value = True
         creator = self._actor(user_id=1, name="Alice A", email="alice@acme.com")
@@ -589,11 +593,27 @@ class TestRefreshSandboxGithubForUser:
             patch(f"{self._MODULE}.is_caller_token_run", return_value=False),
             patch(f"{self._MODULE}.get_user_github_integration", return_value=self._integration("ui-creator")),
             patch(f"{self._MODULE}.resolve_coordinated_user_token", return_value="ghu_creator_token"),
-            patch(f"{self._MODULE}.apply_github_credentials_to_sandbox") as mock_apply,
+            patch(f"{self._MODULE}.set_git_remote_token") as mock_remote,
             patch(f"{self._MODULE}.update_sandbox_env_file"),
             patch("products.tasks.backend.logic.services.sandbox.Sandbox.get_by_id", return_value=sandbox),
         ):
             assert refresh_sandbox_github_for_user(self._task_run("ui-creator"), creator) is True
 
-        mock_apply.assert_called_once_with(sandbox, "acme/repo", "ghu_creator_token")
-        assert get_last_github_identity("run-gh-1") == "ui-creator"
+        mock_remote.assert_called_once_with(sandbox, "acme/repo", "ghu_creator_token")
+        assert get_last_sandbox_identity("run-gh-1", "github") == "ui-creator"
+
+    def test_creator_message_on_never_swapped_run_skips_resolution(self):
+        from products.tasks.backend.temporal.process_task.sandbox_credentials import refresh_sandbox_github_for_user
+        from products.tasks.backend.temporal.process_task.utils import PrAuthorshipMode
+
+        creator = self._actor(user_id=1)
+        with (
+            patch(f"{self._MODULE}.get_pr_authorship_mode", return_value=PrAuthorshipMode.USER),
+            patch(f"{self._MODULE}.is_caller_token_run", return_value=False),
+            patch(f"{self._MODULE}.get_user_github_integration") as mock_resolve,
+        ):
+            assert refresh_sandbox_github_for_user(self._task_run(created_by_id=1), creator) is False
+
+        # The dominant case (creator messaging their own never-swapped thread)
+        # must not pay the integration resolution's DB query per message.
+        mock_resolve.assert_not_called()

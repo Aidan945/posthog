@@ -28,6 +28,7 @@ from products.tasks.backend.temporal.oauth import create_oauth_access_token, cre
 from products.tasks.backend.temporal.observability import emit_agent_log, log_activity_execution
 from products.tasks.backend.temporal.process_task.sandbox_credentials import set_git_remote_token
 from products.tasks.backend.temporal.process_task.utils import (
+    clear_sandbox_identities,
     get_git_identity_env_vars,
     get_sandbox_api_url,
     get_sandbox_github_token,
@@ -650,6 +651,12 @@ def inject_fresh_tokens_on_resume(input: InjectFreshTokensOnResumeInput) -> None
         **ctx.to_log_context(),
     ):
         task = _load_task(ctx)
+
+        # Resume re-applies the boot-time (task creator) credentials below, so
+        # forget any per-message identity swap a Slack actor made before the
+        # snapshot — a stale mark would block their next rebind as a
+        # same-identity no-op while the refresh loop pulls the other way.
+        clear_sandbox_identities(ctx.run_id)
 
         github_token = ""
         if ctx.has_github_credentials:

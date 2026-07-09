@@ -18,13 +18,13 @@ from products.tasks.backend.models import Task, TaskRun
 from products.tasks.backend.temporal.process_task.utils import (
     PrAuthorshipMode,
     get_github_token,
-    get_last_github_identity,
+    get_last_sandbox_identity,
     get_pr_authorship_mode,
     get_sandbox_github_token,
     get_user_github_integration,
     git_identity_env_for_user,
     is_caller_token_run,
-    mark_github_identity,
+    mark_sandbox_identity,
     resolve_user_github_integration_for_task,
 )
 
@@ -160,8 +160,8 @@ def _live_sandboxes_for_user_integration(user_integration_id: int) -> list[tuple
         # A Slack actor may have swapped this sandbox's live identity to a
         # different integration; propagating the task owner's token over it
         # would silently revert the swap.
-        swapped_identity = get_last_github_identity(str(run.id))
-        if swapped_identity is not None and swapped_identity != str(user_integration_id):
+        swapped_identity = get_last_sandbox_identity(str(run.id), "github")
+        if swapped_identity is not None and str(swapped_identity) != str(user_integration_id):
             continue
         rows.append((str(run.id), sandbox_id, run.task.repository))
     return rows
@@ -357,14 +357,22 @@ class GitHubSandboxCredential:
             )
 
 
+def _current_github_identity(run_id: str, task: Task) -> str:
+    """The UserIntegration id the sandbox's GitHub credentials are bound to.
+
+    Falls back to the task's own integration — the boot-time identity — when
+    no swap was ever recorded (or the cache entry was evicted)."""
+    return str(get_last_sandbox_identity(run_id, "github") or task.github_user_integration_id)
+
+
 def _swapped_identity_integration(run_id: str, task: Task) -> UserGitHubIntegration | None:
     """Return the UserGitHubIntegration a Slack actor swapped this run to, if any.
 
     None when the run was never swapped, still holds the task's own identity,
     or the swapped integration has since been deleted (in which case the
     caller falls back to the task's own resolution)."""
-    swapped_id = get_last_github_identity(run_id)
-    if swapped_id is None or swapped_id == str(task.github_user_integration_id):
+    swapped_id = _current_github_identity(run_id, task)
+    if swapped_id == str(task.github_user_integration_id):
         return None
     try:
         integration = UserIntegration.objects.get(id=swapped_id, kind="github")
@@ -399,6 +407,13 @@ def refresh_sandbox_github_for_user(task_run: TaskRun, user) -> bool:
     if not sandbox_id:
         return False
 
+    # Fast path for the dominant case: a never-swapped sandbox holds the
+    # creator's boot-time identity, so a message from the creator needs no
+    # integration resolution (a DB query and, on a stale repo cache, a GitHub
+    # API sync) — the credential refresh loop owns token freshness.
+    if get_last_sandbox_identity(run_id, "github") is None and user.id == task.created_by_id:
+        return False
+
     integration = get_user_github_integration(user, repository=task.repository, allow_refresh=True)
     if integration is None:
         logger.info(
@@ -407,7 +422,7 @@ def refresh_sandbox_github_for_user(task_run: TaskRun, user) -> bool:
         )
         return False
 
-    current_identity = get_last_github_identity(run_id) or str(task.github_user_integration_id)
+    current_identity = _current_github_identity(run_id, task)
     integration_id = str(integration.integration.id)
     if integration_id == current_identity:
         # Already this identity; the credential refresh loop keeps the token fresh.
@@ -432,9 +447,12 @@ def refresh_sandbox_github_for_user(task_run: TaskRun, user) -> bool:
     if not sandbox.is_running():
         return False
 
-    apply_github_credentials_to_sandbox(sandbox, task.repository, token)
-    update_sandbox_env_file(sandbox, git_identity_env_for_user(user))
-    mark_github_identity(run_id, integration_id)
+    if task.repository:
+        set_git_remote_token(sandbox, task.repository, token)
+    # One env-file read-modify-write for token and author together — half the
+    # sandbox round-trips of applying them separately.
+    update_sandbox_env_file(sandbox, {**dict.fromkeys(GITHUB_ENV_KEYS, token), **git_identity_env_for_user(user)})
+    mark_sandbox_identity(run_id, "github", integration_id)
     logger.info(
         "Swapped sandbox GitHub identity to live actor",
         extra={

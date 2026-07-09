@@ -26,11 +26,11 @@ from products.tasks.backend.models import TaskRun
 from products.tasks.backend.redis import get_tasks_stream_redis_sync, run_uses_dedicated_stream
 from products.tasks.backend.temporal.oauth import create_oauth_access_token_for_user, oauth_application_for_task
 from products.tasks.backend.temporal.process_task.utils import (
-    get_last_mcp_identity,
+    get_last_sandbox_identity,
     get_sandbox_ph_mcp_configs,
     get_user_mcp_server_configs,
-    mark_mcp_identity,
     mark_mcp_token_issued,
+    mark_sandbox_identity,
     should_refresh_mcp_token,
 )
 
@@ -235,8 +235,7 @@ def refresh_sandbox_mcp_for_user(
     *,
     scopes: PosthogMcpScopes,
     auth_token: str | None,
-    force: bool = False,
-) -> CommandResult | None:
+) -> None:
     """Mint a fresh OAuth token scoped to ``user`` and push updated MCP configs
     to the sandbox via ``send_refresh_session``.
 
@@ -246,22 +245,22 @@ def refresh_sandbox_mcp_for_user(
     Rate-limited per ``(run_id, user_id)``: skipped if the same user already
     had a token issued within the ``MCP_TOKEN_REFRESH_INTERVAL_SECONDS`` window.
     The rate limit never applies to an identity transition — when ``user``
-    differs from the identity the sandbox currently holds (tracked via
-    ``mark_mcp_identity``, defaulting to the task creator), the refresh always
-    goes through so the actor swap can't be silently skipped. ``force=True``
-    bypasses the rate limit unconditionally.
+    differs from the identity the sandbox currently holds (defaulting to the
+    task creator), the refresh always goes through so the actor swap can't be
+    silently skipped.
 
-    Returns the last ``CommandResult`` from ``send_refresh_session``, or
-    ``None`` when skipped (rate limit, no configs, mint failure).
+    Note the session's MCP server set is *replaced* on refresh: the personal
+    MCP Store servers follow ``user``, so a swap uninstalls the previous
+    actor's servers and installs the new actor's for the rest of their turn.
     """
     run_id = str(task_run.id)
     task = task_run.task
-    current_identity = get_last_mcp_identity(run_id) or task.created_by_id
+    current_identity = get_last_sandbox_identity(run_id, "mcp") or task.created_by_id
     identity_changed = user.id != current_identity
     rate_limit_key = f"{run_id}:{user.id}"
-    if not force and not identity_changed and not should_refresh_mcp_token(rate_limit_key):
+    if not identity_changed and not should_refresh_mcp_token(rate_limit_key):
         logger.info("refresh_mcp_skipped_within_interval", run_id=run_id, user_id=user.id)
-        return None
+        return
     if identity_changed:
         logger.info(
             "refresh_mcp_identity_transition",
@@ -279,7 +278,7 @@ def refresh_sandbox_mcp_for_user(
         )
     except Exception as e:
         logger.warning("refresh_mcp_token_mint_failed", run_id=run_id, user_id=user.id, error=str(e))
-        return None
+        return
 
     mcp_configs = get_sandbox_ph_mcp_configs(
         token=access_token,
@@ -299,7 +298,7 @@ def refresh_sandbox_mcp_for_user(
 
     if not mcp_configs:
         logger.info("refresh_mcp_skipped_no_configs", run_id=run_id, user_id=user.id)
-        return None
+        return
 
     mcp_servers = [config.to_dict() for config in mcp_configs]
 
@@ -311,9 +310,9 @@ def refresh_sandbox_mcp_for_user(
     )
     if result.success:
         mark_mcp_token_issued(rate_limit_key)
-        mark_mcp_identity(run_id, user.id)
+        mark_sandbox_identity(run_id, "mcp", user.id)
         logger.info("refresh_mcp_delivered", run_id=run_id, user_id=user.id, attempts=1)
-        return result
+        return
 
     logger.info(
         "refresh_mcp_retrying",
@@ -331,9 +330,9 @@ def refresh_sandbox_mcp_for_user(
     )
     if retry.success:
         mark_mcp_token_issued(rate_limit_key)
-        mark_mcp_identity(run_id, user.id)
+        mark_sandbox_identity(run_id, "mcp", user.id)
         logger.info("refresh_mcp_delivered", run_id=run_id, user_id=user.id, attempts=2)
-        return retry
+        return
 
     logger.warning(
         "refresh_mcp_failed",
@@ -342,7 +341,6 @@ def refresh_sandbox_mcp_for_user(
         error=retry.error,
         status_code=retry.status_code,
     )
-    return retry
 
 
 def _get_stop_reason(result_data: dict[str, Any] | None) -> str:

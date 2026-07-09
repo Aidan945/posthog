@@ -708,8 +708,7 @@ class TestForwardPostHogCodeFollowupActivity(TestCase):
         mock_resolve.assert_called_once_with(mock_slack_instance, self.integration, "U_BOB", "C123", "1234.5678")
         mock_slack_instance.client.chat_postMessage.assert_not_called()
 
-    @patch("products.tasks.backend.facade.api.refresh_sandbox_github_for_user")
-    @patch("products.tasks.backend.facade.api.refresh_sandbox_mcp_for_user")
+    @patch("products.tasks.backend.facade.api.rebind_sandbox_identity_for_user")
     @patch(
         "products.tasks.backend.logic.services.connection_token.create_sandbox_connection_token",
         return_value="jwt-token",
@@ -718,7 +717,7 @@ class TestForwardPostHogCodeFollowupActivity(TestCase):
     @patch("products.slack_app.backend.api.resolve_slack_user")
     @patch("posthog.models.integration.SlackIntegration")
     def test_cross_user_followup_authorized_prefixes_actor_name(
-        self, mock_slack_cls, mock_resolve, mock_send, mock_token, mock_reauth, mock_github_reauth
+        self, mock_slack_cls, mock_resolve, mock_send, mock_token, mock_rebind
     ):
         # A second user in the same PostHog org and team chips in on the thread:
         # we re-bind the sandbox JWT and the PostHog MCP credentials to *them*, so
@@ -742,17 +741,13 @@ class TestForwardPostHogCodeFollowupActivity(TestCase):
         # The facade forwards user_id/distinct_id positionally to the underlying mint,
         # so the mock sees args = (run, user_id, distinct_id).
         assert mock_token.call_args.args[1] == bob.id
-        # MCP credentials are rebound to Bob before the follow-up is delivered,
-        # so the agent's next ACP query talks to PostHog as Bob. The tasks layer
-        # detects the identity transition and bypasses its refresh rate limit.
-        mock_reauth.assert_called_once_with(self.task_run.id, bob.id, scopes="full", auth_token="jwt-token")
-        # The GitHub identity (token + git author) is likewise rebound to Bob,
-        # so this turn's commits and PRs are authored by him when he has a
-        # personal install covering the repo.
-        mock_github_reauth.assert_called_once_with(self.task_run.id, bob.id)
+        # The sandbox identity (MCP token, GitHub token, git author) is rebound
+        # to Bob before the follow-up is delivered, so the agent acts as Bob for
+        # this turn. The tasks layer detects the identity transition and
+        # bypasses its refresh rate limits.
+        mock_rebind.assert_called_once_with(self.task_run.id, bob.id, auth_token="jwt-token")
 
-    @patch("products.tasks.backend.facade.api.refresh_sandbox_github_for_user")
-    @patch("products.tasks.backend.facade.api.refresh_sandbox_mcp_for_user")
+    @patch("products.tasks.backend.facade.api.rebind_sandbox_identity_for_user")
     @patch(
         "products.tasks.backend.logic.services.connection_token.create_sandbox_connection_token",
         return_value="jwt-token",
@@ -761,7 +756,7 @@ class TestForwardPostHogCodeFollowupActivity(TestCase):
     @patch("products.slack_app.backend.api.resolve_slack_user")
     @patch("posthog.models.integration.SlackIntegration")
     def test_legacy_dispatch_keeps_creator_identity(
-        self, mock_slack_cls, mock_resolve, mock_send, mock_token, mock_reauth, mock_github_reauth
+        self, mock_slack_cls, mock_resolve, mock_send, mock_token, mock_rebind
     ):
         # Messages dispatched by the legacy per-message workflow (queue flag
         # off) must behave exactly as before: no MCP or GitHub rebind, and the
@@ -781,8 +776,7 @@ class TestForwardPostHogCodeFollowupActivity(TestCase):
 
         assert result is True
         assert mock_token.call_args.args[1] == self.task.created_by_id
-        mock_reauth.assert_not_called()
-        mock_github_reauth.assert_not_called()
+        mock_rebind.assert_not_called()
         mock_send.assert_called_once_with(
             self.task_run, "Bob: please retry the build", auth_token="jwt-token", timeout=90
         )
@@ -794,7 +788,7 @@ class TestForwardPostHogCodeFollowupActivity(TestCase):
         ]
         assert not post_calls
 
-    @patch("products.tasks.backend.facade.api.refresh_sandbox_mcp_for_user")
+    @patch("products.tasks.backend.facade.api.rebind_sandbox_identity_for_user")
     @patch(
         "products.tasks.backend.logic.services.connection_token.create_sandbox_connection_token",
         return_value="jwt-token",
@@ -816,7 +810,7 @@ class TestForwardPostHogCodeFollowupActivity(TestCase):
 
         mock_send.assert_called_once_with(self.task_run, "bob@test.com: ping", auth_token="jwt-token", timeout=90)
 
-    @patch("products.tasks.backend.facade.api.refresh_sandbox_mcp_for_user")
+    @patch("products.tasks.backend.facade.api.rebind_sandbox_identity_for_user")
     @patch(
         "products.tasks.backend.logic.services.connection_token.create_sandbox_connection_token",
         return_value="jwt-token",
@@ -824,14 +818,13 @@ class TestForwardPostHogCodeFollowupActivity(TestCase):
     @patch("products.tasks.backend.logic.services.agent_command.send_user_message")
     @patch("products.slack_app.backend.api.resolve_slack_user")
     @patch("posthog.models.integration.SlackIntegration")
-    def test_cross_user_followup_proceeds_when_mcp_reauth_raises(
+    def test_cross_user_followup_proceeds_when_identity_rebind_raises(
         self, mock_slack_cls, mock_resolve, mock_send, mock_token, mock_reauth
     ):
-        # If the MCP rebind fails (e.g. the agent rejects with -32002 mid-turn or the
-        # OAuth mint blows up), we still deliver the user's message rather than dropping
-        # it on the floor. The cost is that the *first* tool call after this follow-up
-        # may still attribute to the original creator — an accepted downside vs. losing
-        # the user's input entirely.
+        # The facade rebind is best-effort by contract, but even if it raises
+        # unexpectedly we still deliver the user's message rather than dropping
+        # it on the floor. The cost is that this turn may still attribute to
+        # the previous identity — an accepted downside vs. losing the input.
         self._create_mapping(mentioning_user="U_ALICE")
         bob = User.objects.create(email="bob@test.com", first_name="Bob")
         mock_slack_cls.return_value = MagicMock()
@@ -910,15 +903,14 @@ class TestForwardPostHogCodeFollowupActivity(TestCase):
         call_kwargs = mock_slack_instance.client.chat_postMessage.call_args.kwargs
         assert "still starting up" in call_kwargs["text"]
 
-    @patch("products.tasks.backend.facade.api.refresh_sandbox_github_for_user")
-    @patch("products.tasks.backend.facade.api.refresh_sandbox_mcp_for_user")
+    @patch("products.tasks.backend.facade.api.rebind_sandbox_identity_for_user")
     @patch(
         "products.tasks.backend.logic.services.connection_token.create_sandbox_connection_token",
         return_value="jwt-token",
     )
     @patch("products.tasks.backend.logic.services.agent_command.send_user_message")
     @patch("posthog.models.integration.SlackIntegration")
-    def test_successful_forwarding(self, mock_slack_cls, mock_send, mock_token, mock_reauth, mock_github_reauth):
+    def test_successful_forwarding(self, mock_slack_cls, mock_send, mock_token, mock_rebind):
         mapping = self._create_mapping()
         mock_slack_instance = MagicMock()
         mock_slack_cls.return_value = mock_slack_instance
@@ -935,13 +927,10 @@ class TestForwardPostHogCodeFollowupActivity(TestCase):
 
         assert result is True
         mock_token.assert_called_once()
-        # Every message rebinds the MCP credentials to its actor — here the task
-        # creator. The tasks layer rate-limits same-identity refreshes, so this
-        # stays cheap; what matters is the actor is always the one authed.
-        mock_reauth.assert_called_once_with(
-            self.task_run.id, self.task.created_by_id, scopes="full", auth_token="jwt-token"
-        )
-        mock_github_reauth.assert_called_once_with(self.task_run.id, self.task.created_by_id)
+        # Every message rebinds the sandbox identity to its actor — here the
+        # task creator. The tasks layer rate-limits same-identity refreshes,
+        # so this stays cheap; what matters is the actor is always the one authed.
+        mock_rebind.assert_called_once_with(self.task_run.id, self.task.created_by_id, auth_token="jwt-token")
         mock_send.assert_called_once_with(self.task_run, "do something", auth_token="jwt-token", timeout=90)
         # Agent is now working on the message, so the :eyes: reaction stays up — it is
         # not swapped to :hedgehog: until the task genuinely completes.

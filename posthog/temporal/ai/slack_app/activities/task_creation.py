@@ -697,41 +697,24 @@ def forward_posthog_code_followup_activity(
             task_run.id, user_id=identity_user.id, distinct_id=distinct_id
         )
 
-    # Rebind the agent's PostHog MCP credentials to the message's actor *before*
-    # sending it — so the next ACP query mints insights / dashboards under their
-    # identity, not whoever spoke last. The tasks layer tracks the sandbox's
-    # current identity and bypasses its refresh rate limit on any transition
-    # (including switching *back* to the task creator), so this is safe and
-    # cheap to call for every message. Best-effort: on failure we log and
-    # proceed — the message still queues under the previous identity, which we
-    # accept rather than dropping it.
-    if inputs.per_message_identity and actor_user and actor_user.id:
+    # Rebind the sandbox to the message's actor *before* sending it: MCP writes
+    # (insights, dashboards) and GitHub activity (commits, PRs) from this turn
+    # attribute to whoever actually spoke, not whoever spoke last. The tasks
+    # layer tracks the sandbox's current identity, bypasses its refresh rate
+    # limits on any transition (including switching *back* to the task
+    # creator), and is best-effort by contract — a rebind failure is logged
+    # there and never blocks the message. The belt-and-braces except covers
+    # facade-level surprises for the same reason: deliver the message under
+    # the previous identity rather than dropping it.
+    if inputs.per_message_identity and identity_user and identity_user.id:
         try:
-            tasks_facade.refresh_sandbox_mcp_for_user(
-                task_run.id,
-                actor_user.id,
-                scopes="full",
-                auth_token=auth_token,
-            )
+            tasks_facade.rebind_sandbox_identity_for_user(task_run.id, identity_user.id, auth_token=auth_token)
         except Exception:
             logger.exception(
-                "slack_app_followup_mcp_reauth_failed",
+                "slack_app_followup_identity_rebind_failed",
                 channel=channel,
                 thread_ts=thread_ts,
-                actor_user_id=actor_user.id,
-            )
-        # Likewise rebind the sandbox's GitHub identity (token + git author) so
-        # commits and PRs from this turn are authored by the actor. No-op when
-        # they lack a personal GitHub install covering the repo — the previous
-        # identity keeps authoring. Best-effort, same as the MCP rebind.
-        try:
-            tasks_facade.refresh_sandbox_github_for_user(task_run.id, actor_user.id)
-        except Exception:
-            logger.exception(
-                "slack_app_followup_github_reauth_failed",
-                channel=channel,
-                thread_ts=thread_ts,
-                actor_user_id=actor_user.id,
+                actor_user_id=identity_user.id,
             )
 
     result = tasks_facade.send_user_message(task_run.id, user_text, auth_token=auth_token, timeout=90)
