@@ -362,7 +362,7 @@ function ExperimentExecutionPathComparison({ experimentId }: { experimentId: num
 
         await runWithLimit(tasks, COMPARISON_CONCURRENCY_LIMIT)
         setRunAllInProgress(false)
-    }, [allMetrics, experimentId, featureFlags])
+    }, [experimentId, featureFlags])
 
     if (allMetrics.length === 0) {
         return <div className="text-muted">No metrics configured.</div>

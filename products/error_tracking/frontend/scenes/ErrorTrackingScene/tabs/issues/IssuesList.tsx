@@ -40,7 +40,7 @@ const VolumeColumn: QueryContextColumnComponent = (props) => {
     const baseData = useSparklineData(record.aggregations, ERROR_TRACKING_LISTING_RESOLUTION)
     const { spikeEventsByIssueId } = useValues(batchSpikeEventsLogic)
     const spikeEvents = record.id ? (spikeEventsByIssueId[record.id] ?? []) : []
-    const data = useMemo(() => applyVolumeSpikeHighlights(baseData, spikeEvents), [baseData, spikeEvents])
+    const data = useMemo(() => applyVolumeSpikeHighlights(baseData, spikeEvents), [baseData])
 
     const { hoveredDatum, isBarHighlighted } = useValues(errorTrackingVolumeSparklineLogic({ sparklineKey }))
 

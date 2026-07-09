@@ -231,7 +231,7 @@ export function LemonTable<T extends Record<string, any>, K extends BulkSelectio
             }
         }
         return dataSource
-    }, [dataSource, currentSorting, baseColumns])
+    }, [dataSource, baseColumns])
 
     const paginationState = usePagination(sortedDataSource, pagination, id)
 

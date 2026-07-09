@@ -62,7 +62,7 @@ export function WidgetPropertyFiltersReadOnlyValues({
                 return { id: filter.id, name: filter.name, value: widgetFilterReadOnlyLabel(filter, entry) }
             })
             .filter((item): item is { id: string; name: string; value: string } => item != null)
-    }, [filterDefinitions, stored])
+    }, [filterDefinitions])
 
     if (labels.length === 0) {
         return null

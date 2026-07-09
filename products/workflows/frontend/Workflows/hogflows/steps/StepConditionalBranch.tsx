@@ -53,7 +53,7 @@ export function StepConditionalBranchConfiguration({
         })
 
         return [branchEdges.sort((a, b) => (a.index ?? 0) - (b.index ?? 0)), nonBranchEdges]
-    }, [nodeEdges, action.id])
+    }, [action.id])
 
     const continueEdge = nodeEdges.find((edge) => edge.type === 'continue' && edge.from === action.id)
 

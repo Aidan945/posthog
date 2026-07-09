@@ -52,7 +52,7 @@ export function LemonSegmentedDropdown<T extends React.Key>({
             }
         }
         return groups
-    }, [options, effectiveSplitIndices])
+    }, [options])
 
     const isAnyDropdownValueSelected = dropdownGroups.some((group) => group.some((opt) => opt.value === value))
 

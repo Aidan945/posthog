@@ -461,6 +461,10 @@ export function InsightsTable({
         compareFilter?.compare,
         interval,
         maxVisibleColumns,
+        insightData.resolved_date_range,
+        timezone,
+        weekStartDay,
+        display,
     ]) // oxlint-disable-line react-hooks/exhaustive-deps
 
     const totalValueColumns = indexedResults?.[0]?.data?.length ?? 0

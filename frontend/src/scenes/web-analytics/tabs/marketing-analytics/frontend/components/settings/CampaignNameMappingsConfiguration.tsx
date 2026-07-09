@@ -106,7 +106,7 @@ export function CampaignNameMappingsConfiguration({
             return []
         }
         return findCampaignSuggestions(firstValue, campaigns, 3)
-    }, [newRawValues, campaigns])
+    }, [newRawValues])
 
     const addMapping = (): void => {
         if (!selectedSource || !newCleanName.trim() || !newRawValues.trim()) {

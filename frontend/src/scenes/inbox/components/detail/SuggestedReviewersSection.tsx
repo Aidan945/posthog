@@ -51,10 +51,7 @@ export function SuggestedReviewersSection({ report }: { report: SignalReport }):
     const baseReviewers = reviewers ?? []
     // Assigned set keyed by user uuid (how `reviewerMatchesOption` matches), so the add-list
     // membership check is O(1) per option instead of scanning every reviewer per keystroke.
-    const assignedUuids = useMemo(
-        () => new Set(baseReviewers.map((r) => r.user?.uuid).filter(Boolean)),
-        [baseReviewers]
-    )
+    const assignedUuids = useMemo(() => new Set(baseReviewers.map((r) => r.user?.uuid).filter(Boolean)), [])
     const meUuid = addReviewerOptions[0]?.user_uuid
 
     // Render nothing only when there is no artefact at all (no reviewers ever computed). An empty list with

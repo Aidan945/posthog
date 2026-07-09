@@ -50,7 +50,7 @@ export function StepRandomCohortBranchConfiguration({
         })
 
         return [branchEdges.sort((a, b) => (a.index ?? 0) - (b.index ?? 0)), nonBranchEdges]
-    }, [nodeEdges, action.id])
+    }, [action.id])
 
     const addCohort = (): void => {
         const continueEdge = nodeEdges.find((edge) => edge.type === 'continue' && edge.from === action.id)

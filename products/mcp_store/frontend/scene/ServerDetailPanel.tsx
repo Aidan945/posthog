@@ -82,7 +82,7 @@ function ToolsSection({ installation, disabledReason }: ToolsSectionProps): JSX.
     }, [installation.id, installationTools, loadInstallationTools])
 
     const tools: MCPServerInstallationToolApi[] = installationTools[installation.id] ?? []
-    const visibleTools = useMemo(() => tools.filter((t) => showRemoved || !t.removed_at), [tools, showRemoved])
+    const visibleTools = useMemo(() => tools.filter((t) => showRemoved || !t.removed_at), [showRemoved])
     const removedCount = countBy(tools, (t) => !!t.removed_at)
     const approvedCount = countBy(tools, (t) => t.approval_state === 'approved')
     const pendingCount = countBy(tools, (t) => (t.approval_state ?? 'needs_approval') === 'needs_approval')

@@ -163,7 +163,7 @@ export function TwoDimensionalHeatmap({ allowSorting = true }: { allowSorting?: 
     const { xAxisColumn, yAxisColumn, valueColumn, nullLabel, nullValue } = heatmapSettings
     const sorting = useMemo(
         () => getSortingFromHeatmapSettings(heatmapSettings),
-        [heatmapSettings.sortColumn, heatmapSettings.sortOrder, heatmapSettings]
+        [heatmapSettings.sortColumn, heatmapSettings.sortOrder]
     )
     const selectedColumns = [xAxisColumn, yAxisColumn, valueColumn]
     const rows =
@@ -198,17 +198,7 @@ export function TwoDimensionalHeatmap({ allowSorting = true }: { allowSorting?: 
         }
 
         return buildHeatmapData(rows, { xAxisColumn, yAxisColumn, valueColumn, nullLabel, nullValue }, columnIndexes)
-    }, [
-        rows,
-        hasSelection,
-        hasValidColumns,
-        xAxisColumn,
-        yAxisColumn,
-        valueColumn,
-        nullLabel,
-        nullValue,
-        columnIndexes,
-    ])
+    }, [hasSelection, hasValidColumns, xAxisColumn, yAxisColumn, valueColumn, nullLabel, nullValue, columnIndexes])
 
     useEffect(() => {
         if (
@@ -218,7 +208,7 @@ export function TwoDimensionalHeatmap({ allowSorting = true }: { allowSorting?: 
         ) {
             updateChartSettings({ heatmap: getHeatmapSettingsWithSorting(heatmapSettings, null) })
         }
-    }, [heatmapData.xValues, heatmapSettings, sorting, updateChartSettings])
+    }, [heatmapData.xValues, sorting, updateChartSettings])
 
     const sortedYValues = useMemo(
         () => sortHeatmapRows(heatmapData.yValues, heatmapData.cellValues, sorting),

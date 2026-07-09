@@ -49,7 +49,7 @@ function CountDown({ datetime, callback }: { datetime: dayjs.Dayjs; callback?: (
         if (pastCountdown) {
             callback?.() // oxlint-disable-line react-hooks/exhaustive-deps
         }
-    }, [pastCountdown])
+    }, [pastCountdown, callback])
 
     return <span className="tabular-nums text-warning">{countdown}</span>
 }

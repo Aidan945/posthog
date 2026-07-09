@@ -218,6 +218,7 @@ function AddKeyModal({ restrictionReason }: { restrictionReason: string | null }
         isAzure,
         azureEndpoint,
         apiVersion,
+        evaluationConfig.active_provider_key,
     ]) // oxlint-disable-line react-hooks/exhaustive-deps
 
     const handleClose = (): void => {

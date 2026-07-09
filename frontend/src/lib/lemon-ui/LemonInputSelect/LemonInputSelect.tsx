@@ -374,7 +374,6 @@ export function LemonInputSelect<T = string>({
         stringKeys,
         getDisplayLabel,
         getStringKey,
-        values,
         disableFiltering,
         values.length,
         virtualized,
@@ -604,7 +603,7 @@ export function LemonInputSelect<T = string>({
                 }
             }
         },
-        [values, getStringKey, onChange]
+        [getStringKey, onChange]
     )
 
     const valuesPrefix = useMemo(() => {
@@ -666,7 +665,6 @@ export function LemonInputSelect<T = string>({
         )
     }, [
         mode,
-        values,
         values.length,
         inputValue,
         allOptionsMap,
@@ -739,7 +737,6 @@ export function LemonInputSelect<T = string>({
         )
     }, [
         mode,
-        values,
         allowCustomValues,
         disableEditing,
         itemBeingEditedIndex,

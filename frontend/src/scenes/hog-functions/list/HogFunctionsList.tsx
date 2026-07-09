@@ -319,6 +319,7 @@ export function HogFunctionList({
         onDeleteHogFunction,
         onEditHogFunction,
         returnTo,
+        setReorderModalOpen,
     ]) // oxlint-disable-line react-hooks/exhaustive-deps
 
     return (

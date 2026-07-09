@@ -102,10 +102,7 @@ export function QuietHoursFields({
         }
     }, [enabled, calculationInterval, scheduleRestriction?.blocked_windows, teamTimezone])
 
-    const quietIssue = useMemo(
-        () => (enabled && windows.length > 0 ? findQuietHoursIssues(windows) : null),
-        [enabled, windows]
-    )
+    const quietIssue = useMemo(() => (enabled && windows.length > 0 ? findQuietHoursIssues(windows) : null), [enabled])
 
     const coarseInterval = !isSubDailyAlertInterval(calculationInterval)
         ? calculationInterval === AlertCalculationInterval.DAILY

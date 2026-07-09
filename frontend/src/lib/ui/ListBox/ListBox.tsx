@@ -789,7 +789,6 @@ const ListBoxItem = forwardRef<HTMLLIElement, ListBoxItemProps>(
             [
                 handleItemClick,
                 handleFocus,
-                handleBlur,
                 setElementRef,
                 virtualFocusIgnore,
                 focusFirst,

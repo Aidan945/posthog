@@ -109,7 +109,7 @@ export const DashboardTemplatesTable = (): JSX.Element | null => {
             return 0
         }
         return organizationTeams.filter((t) => t.id !== currentTeamId).length
-    }, [organizationTeams, currentTeamId])
+    }, [currentTeamId])
 
     const copyTemplateToProjectMenuSection = (
         templateId: string | undefined,

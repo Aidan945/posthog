@@ -343,13 +343,14 @@ export function Chart<Meta = unknown>({
         })
         return composeDrawHoverWithSelection(withCrosshair)
     }, [
-        showCrosshair,
-        theme.crosshairColor,
-        theme.crosshairDashPattern,
-        axisOrientation,
-        labelToCoord,
-        drawHoverRef.current,
-    ])
+	showCrosshair,
+	theme.crosshairColor,
+	theme.crosshairDashPattern,
+	axisOrientation,
+	labelToCoord,
+	drawHoverRef.current,
+	drawHoverRef
+])
 
     useChartDraw({
         ctx,

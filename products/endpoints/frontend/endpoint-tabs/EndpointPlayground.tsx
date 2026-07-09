@@ -222,7 +222,7 @@ export function EndpointPlayground(): JSX.Element {
 
         window.addEventListener('keydown', handleKeyDown, true)
         return () => window.removeEventListener('keydown', handleKeyDown, true)
-    }, [endpoint?.name, payloadJson, handleExecute])
+    }, [endpoint?.name, payloadJson])
 
     if (!endpoint) {
         return <></>

@@ -107,12 +107,12 @@ function ServiceFilterInner({
             const newNames = isSelected ? selected.filter((n) => n !== name) : [...selected, name]
             onChange(newNames)
         },
-        [selected, onChange, selectionMode]
+        [onChange, selectionMode]
     )
 
     const rowProps = useMemo<ServiceOptionRowProps>(
         () => ({ serviceNames, selected, onToggle }),
-        [serviceNames, selected, onToggle]
+        [serviceNames, onToggle]
     )
 
     const listHeight = useMemo(() => {

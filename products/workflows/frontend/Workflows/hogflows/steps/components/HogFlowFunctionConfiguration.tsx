@@ -53,7 +53,7 @@ export function HogFlowFunctionConfiguration({
                 setInputs({ ...defaults, ...currentInputs })
             }
         }
-    }, [templateId])
+    }, [templateId, template, inputs, setInputs])
 
     if (hogFunctionTemplatesByIdLoading) {
         return (

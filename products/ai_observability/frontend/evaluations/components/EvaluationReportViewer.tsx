@@ -192,7 +192,7 @@ export function EvaluationReportViewer({
 
     // Default to executive summary (first section) expanded. Memoized so Expand/Collapse all
     // buttons can set the list deterministically.
-    const sectionKeys = useMemo(() => sections.map((_, i) => i.toString()), [sections])
+    const sectionKeys = useMemo(() => sections.map((_, i) => i.toString()), [])
     const [expandedKeys, setExpandedKeys] = useState<string[]>(sections.length > 0 ? ['0'] : [])
 
     const allExpanded = expandedKeys.length === sectionKeys.length && sectionKeys.length > 0

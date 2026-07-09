@@ -58,10 +58,12 @@ function UpdateSourceConnectionFormContainer(): JSX.Element {
         source?.prefix,
         source?.description,
         setSourceConfigValue,
-        // oxlint-disable-next-line exhaustive-deps
         JSON.stringify(source?.job_inputs ?? {}),
-        // oxlint-disable-next-line exhaustive-deps
         JSON.stringify(sourceFieldConfig),
+        source.source_type,
+        source.job_inputs,
+        source,
+        sourceFieldConfig,
     ])
 
     if (!sourceFieldConfig || !source) {

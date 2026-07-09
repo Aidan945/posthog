@@ -552,7 +552,7 @@ export function RatingQuestionViz({ question, questionIndex, processedData }: Pr
             isNpsRatingQuestion ? NPS_BUCKET_COLORS[getNpsBucketByRatingLabel(label).bucket] : barColor
         )
         return computeBarColors(baseColors, chartLabels, highlightedRatingLabel, !!activeRatingLabel, isDarkModeOn)
-    }, [activeRatingLabel, barColor, chartLabels, highlightedRatingLabel, isNpsRatingQuestion, isDarkModeOn])
+    }, [activeRatingLabel, barColor, highlightedRatingLabel, isNpsRatingQuestion, isDarkModeOn])
 
     const npsBucketByIndex = useMemo(
         () =>
@@ -563,7 +563,7 @@ export function RatingQuestionViz({ question, questionIndex, processedData }: Pr
                 const { bucket, label: bucketLabel } = getNpsBucketByRatingLabel(label)
                 return { label: bucketLabel, textClass: NPS_BUCKET_TEXT_CLASS[bucket] }
             }),
-        [chartLabels, isNpsRatingQuestion]
+        [isNpsRatingQuestion]
     )
 
     const upsertRatingAnswerFilter = (ratingLabel: string | null): void => {

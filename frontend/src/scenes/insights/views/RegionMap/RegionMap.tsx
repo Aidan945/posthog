@@ -103,6 +103,9 @@ function useRegionMapTooltip(showPersonsModal: boolean): React.RefObject<HTMLDiv
         showPersonsModal,
         groupTypeLabel,
         baseCurrency,
+        showTooltip,
+        getTooltip,
+        hideTooltip,
     ]) // oxlint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {

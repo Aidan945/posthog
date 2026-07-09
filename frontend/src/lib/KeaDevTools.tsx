@@ -103,7 +103,7 @@ function clamp(value: number, min: number, max: number): number {
     return Math.min(Math.max(value, min), max)
 }
 
-function compactJSON(x: unknown) {
+function compactJSON(x: unknown): string {
     try {
         return JSON.stringify(x)
     } catch {
@@ -1524,7 +1524,7 @@ function MemoryTree({
     rootId: string
     state: TreeState
     depth?: number
-}) {
+}): JSX.Element {
     try {
         const children = getChildrenSorted(rootValue)
         return (
@@ -2118,7 +2118,7 @@ export function KeaDevtools({
     // keys + default selection
     const allKeys = useMemo(
         () => Object.keys(mounted).sort((a, b) => displayName(mounted[a]).localeCompare(displayName(mounted[b]))),
-        [mounted]
+        []
     )
 
     useEffect(() => {
@@ -2144,7 +2144,7 @@ export function KeaDevtools({
             base.sort((a, b) => (recent.current.get(b) ?? 0) - (recent.current.get(a) ?? 0))
         }
         return base
-    }, [allKeys, sortMode, debouncedQuery, mounted])
+    }, [allKeys, sortMode, debouncedQuery])
 
     const selectedLogic = selectedKey ? mounted[selectedKey] : undefined
 

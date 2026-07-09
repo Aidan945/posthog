@@ -257,7 +257,7 @@ export function PurePlayer({ noMeta = false, noBorder = false }: PurePlayerProps
     useEffect(() => {
         // oxlint-disable-next-line exhaustive-deps
         setIsHovering(isHovering)
-    }, [isHovering])
+    }, [isHovering, setIsHovering])
 
     useEffect(() => {
         const timeout = setTimeout(() => {
@@ -265,7 +265,7 @@ export function PurePlayer({ noMeta = false, noBorder = false }: PurePlayerProps
             allowPlayerChromeToHide()
         }, 1500)
         return () => clearTimeout(timeout)
-    }, [sessionRecordingId])
+    }, [sessionRecordingId, allowPlayerChromeToHide])
 
     if (isNotFound) {
         return (

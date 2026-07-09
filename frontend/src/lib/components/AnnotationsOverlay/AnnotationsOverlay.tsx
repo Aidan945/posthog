@@ -375,7 +375,7 @@ function AnnotationsPopover({
                 has_system_annotation: true,
             })
         }
-    }, [isPopoverShown, popoverAnnotations])
+    }, [isPopoverShown])
 
     const titleDate = (() => {
         if (!cluster) {

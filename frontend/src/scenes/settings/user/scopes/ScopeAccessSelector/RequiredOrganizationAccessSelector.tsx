@@ -12,6 +12,35 @@ type RequiredOrganizationAccessSelectorProps = {
     autoSelectFirst?: boolean
 }
 
+const RequiredOrganizationAccessField = ({
+    value,
+    onChange,
+    organizations,
+    autoSelectFirst,
+}: {
+    value: unknown
+    onChange: (value: string[]) => void
+    organizations: OrganizationOption[]
+    autoSelectFirst: boolean
+}): JSX.Element => {
+    const arrayValue = Array.isArray(value) ? value : []
+
+    useEffect(() => {
+        if (autoSelectFirst && arrayValue.length === 0 && organizations.length > 0) {
+            onChange([organizations[0].id])
+        }
+    }, [autoSelectFirst, organizations, arrayValue.length, onChange])
+
+    return (
+        <OrganizationSelector
+            organizations={organizations}
+            mode="single"
+            value={arrayValue.length > 0 ? [arrayValue[0]] : []}
+            onChange={(val: string[]) => onChange(val.length > 0 ? [val[0]] : [])}
+        />
+    )
+}
+
 export const RequiredOrganizationAccessSelector = ({
     organizations,
     autoSelectFirst = false,
@@ -21,24 +50,14 @@ export const RequiredOrganizationAccessSelector = ({
             <LemonLabel>Select organization</LemonLabel>
             <p className="text-sm text-muted mb-2">This application requires access to a specific organization.</p>
             <LemonField name="scoped_organizations">
-                {({ value, onChange }) => {
-                    const arrayValue = Array.isArray(value) ? value : []
-
-                    useEffect(() => {
-                        if (autoSelectFirst && arrayValue.length === 0 && organizations.length > 0) {
-                            onChange([organizations[0].id])
-                        }
-                    }, [autoSelectFirst, organizations, arrayValue.length, onChange])
-
-                    return (
-                        <OrganizationSelector
-                            organizations={organizations}
-                            mode="single"
-                            value={arrayValue.length > 0 ? [arrayValue[0]] : []}
-                            onChange={(val: string[]) => onChange(val.length > 0 ? [val[0]] : [])}
-                        />
-                    )
-                }}
+                {({ value, onChange }) => (
+                    <RequiredOrganizationAccessField
+                        value={value}
+                        onChange={onChange}
+                        organizations={organizations}
+                        autoSelectFirst={autoSelectFirst}
+                    />
+                )}
             </LemonField>
         </div>
     )

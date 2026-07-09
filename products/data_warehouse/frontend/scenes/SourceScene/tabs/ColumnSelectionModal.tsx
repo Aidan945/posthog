@@ -119,7 +119,7 @@ function useColumnSelection(
             return available
         }
         return available.filter((column) => column.name.toLowerCase().includes(term))
-    }, [available, filter])
+    }, [filter])
 
     const persistedSelection = (): string[] | null => computePersisted(selected)
 
